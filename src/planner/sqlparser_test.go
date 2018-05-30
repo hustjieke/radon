@@ -696,9 +696,13 @@ func TestSqlParserTableAs(t *testing.T) {
 		assert.Nil(t, err)
 		node := sel.(*sqlparser.Select)
 		log.Debug("from:%T, %+v", node.From[0], node.From[0])
+		fmt.Printf("from: %+v\n", node.From[0])
+		fmt.Printf("node: %+v\n", node)
+		fmt.Printf("SelectExprs: %+v\n", node.SelectExprs[0])
 
 		buf := sqlparser.NewTrackedBuffer(nil)
 		node.Format(buf)
 		log.Debug(buf.String())
+		fmt.Printf("buf: %+v\n", buf.String())
 	}
 }

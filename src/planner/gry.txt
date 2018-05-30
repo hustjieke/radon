@@ -1,0 +1,30 @@
+diff --git a/src/planner/sqlparser_test.go b/src/planner/sqlparser_test.go
+index a7b426a..f2a1d2f 100644
+--- a/src/planner/sqlparser_test.go
++++ b/src/planner/sqlparser_test.go
+@@ -696,9 +696,13 @@ func TestSqlParserTableAs(t *testing.T) {
+ 		assert.Nil(t, err)
+ 		node := sel.(*sqlparser.Select)
+ 		log.Debug("from:%T, %+v", node.From[0], node.From[0])
++		fmt.Printf("from: %+v\n", node.From[0])
++		fmt.Printf("node: %+v\n", node)
++		fmt.Printf("SelectExprs: %+v\n", node.SelectExprs[0])
+ 
+ 		buf := sqlparser.NewTrackedBuffer(nil)
+ 		node.Format(buf)
+ 		log.Debug(buf.String())
++		fmt.Printf("buf: %+v\n", buf.String())
+ 	}
+ }
+diff --git a/src/vendor/github.com/xelabs/go-mysqlstack/sqlparser/sql.y b/src/vendor/github.com/xelabs/go-mysqlstack/sqlparser/sql.y
+index 4b6a9df..cf9ee51 100644
+--- a/src/vendor/github.com/xelabs/go-mysqlstack/sqlparser/sql.y
++++ b/src/vendor/github.com/xelabs/go-mysqlstack/sqlparser/sql.y
+@@ -298,6 +298,7 @@ select_statement:
+     sel.Limit = $3
+     sel.Lock = $4
+     $$ = sel
++    fmt.Printf("%v", sel)
+   }
+ | union_lhs union_op union_rhs order_by_opt limit_opt lock_opt
+   {
