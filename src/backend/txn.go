@@ -428,6 +428,7 @@ func (txn *Txn) execute(req *xcontext.RequestContext) (*sqltypes.Result, error) 
 	switch req.Mode {
 	// ReqSingle mode: execute on the first one shard of txn.backends.
 	case xcontext.ReqSingle:
+		log.Info("gry+++req.Mode: ReqSingle")
 		qs := []string{req.RawQuery}
 		for back := range txn.backends {
 			wg.Add(1)
@@ -436,6 +437,7 @@ func (txn *Txn) execute(req *xcontext.RequestContext) (*sqltypes.Result, error) 
 		}
 	// ReqScatter mode: execute on the all shards of txn.backends.
 	case xcontext.ReqScatter:
+		log.Info("gry+++req.Mode: ReqScatter")
 		qs := []string{req.RawQuery}
 		beLen := len(txn.backends)
 		for back := range txn.backends {
@@ -448,6 +450,7 @@ func (txn *Txn) execute(req *xcontext.RequestContext) (*sqltypes.Result, error) 
 		}
 	// ReqNormal mode: execute on the some shards of txn.backends.
 	case xcontext.ReqNormal:
+		log.Info("gry+++req.Mode: ReqNormal")
 		queryMap := make(map[string][]string)
 		for _, query := range req.Querys {
 			v, ok := queryMap[query.Backend]

@@ -43,6 +43,7 @@ func (executor *SelectExecutor) Execute(ctx *xcontext.ResultContext) error {
 	var err error
 	log := executor.log
 	plan := executor.plan.(*planner.SelectPlan)
+	log.Info("gry+++plan[router]: %+v", plan)
 	subPlanTree := plan.Children()
 	reqCtx := xcontext.NewRequestContext()
 	reqCtx.Mode = plan.ReqMode
@@ -54,6 +55,7 @@ func (executor *SelectExecutor) Execute(ctx *xcontext.ResultContext) error {
 	if ctx.Results, err = executor.txn.Execute(reqCtx); err != nil {
 		return err
 	}
+	log.Info("gry+++subPlanTree: ", subPlanTree)
 
 	// Execute all the chilren plan.
 	if subPlanTree != nil {

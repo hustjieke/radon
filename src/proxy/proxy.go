@@ -99,6 +99,7 @@ func (p *Proxy) Start() {
 	if err := spanner.Init(); err != nil {
 		log.Panic("proxy.spanner.init.panic:%+v", err)
 	}
+	log.Info("gry---endpoint: %+v", endpoint)
 	svr, err := driver.NewListener(log, endpoint, spanner)
 	if err != nil {
 		log.Panic("proxy.start.error[%+v]", err)

@@ -17,7 +17,10 @@ import (
 
 // handleSelect used to handle the select command.
 func (spanner *Spanner) handleSelect(session *driver.Session, query string, node sqlparser.Statement) (*sqltypes.Result, error) {
+	log := spanner.log
 	database := session.Schema()
+	log.Info("gry+++database: %+v", database)
+	log.Info("gry+++session %+v", session)
 	return spanner.Execute(session, database, query, node)
 }
 

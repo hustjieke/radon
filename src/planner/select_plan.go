@@ -72,6 +72,7 @@ func NewSelectPlan(log *xlog.Log, database string, query string, node *sqlparser
 // Unsupports:
 // 1. subquery
 func (p *SelectPlan) analyze() (string, string, error) {
+	log := p.log
 	var shardDatabase string
 	var shardTable string
 	var tableExpr *sqlparser.AliasedTableExpr
@@ -86,8 +87,10 @@ func (p *SelectPlan) analyze() (string, string, error) {
 	// Currently only support AliasedTableExpr, JoinTableExpr select.
 	switch expr := (node.From[0]).(type) {
 	case *sqlparser.AliasedTableExpr:
+		log.Info("gry+++sqlparser.AliasedTableExpr表达式")
 		tableExpr = expr
 	case *sqlparser.JoinTableExpr:
+		log.Info("gry+++sqlparser.JoinTableExpr表达式")
 		if v, ok := (expr.LeftExpr).(*sqlparser.AliasedTableExpr); ok {
 			tableExpr = v
 		}
@@ -96,10 +99,13 @@ func (p *SelectPlan) analyze() (string, string, error) {
 	if tableExpr != nil {
 		switch expr := tableExpr.Expr.(type) {
 		case sqlparser.TableName:
+			log.Info("gry+++sqlparser.TableName")
 			if !expr.Qualifier.IsEmpty() {
 				shardDatabase = expr.Qualifier.String()
+				log.Info("gry+++Qualifier isEmpty: %+v", shardDatabase)
 			}
 			shardTable = expr.Name.String()
+			log.Info("gry+++shardTable: %+v", shardTable)
 		}
 	}
 	return shardDatabase, shardTable, nil
@@ -113,6 +119,7 @@ func (p *SelectPlan) Build() error {
 	var shardDatabase string
 
 	log := p.log
+	log.Info("gry+++进入select plan build")
 	node := p.node
 	if shardDatabase, shardTable, err = p.analyze(); err != nil {
 		return err
@@ -122,6 +129,7 @@ func (p *SelectPlan) Build() error {
 	}
 
 	// Get the routing segments info.
+	// gry:寻找database/table
 	shardkey, err := p.router.ShardKey(shardDatabase, shardTable)
 	if err != nil {
 		return err

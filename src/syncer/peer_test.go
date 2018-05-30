@@ -18,6 +18,10 @@ import (
 
 const (
 	testPeerdir = "_test_syncer_peer"
+<<<<<<< Updated upstream
+=======
+	// testDirRmPeer = "_test_syncer_peer"
+>>>>>>> Stashed changes
 )
 
 func testRemovePeerdir() {
@@ -25,6 +29,11 @@ func testRemovePeerdir() {
 }
 
 func TestPeer(t *testing.T) {
+<<<<<<< Updated upstream
+=======
+	defer testRemovePeerdir()
+	defer os.RemoveAll("/tmp/peers.json")
+>>>>>>> Stashed changes
 	log := xlog.NewStdLog(xlog.Level(xlog.DEBUG))
 
 	// Create test dir "_test_syncer_peer"
@@ -84,7 +93,10 @@ func TestPeer(t *testing.T) {
 
 func TestPeerError(t *testing.T) {
 	defer testRemovePeerdir()
+<<<<<<< Updated upstream
 
+=======
+>>>>>>> Stashed changes
 	log := xlog.NewStdLog(xlog.Level(xlog.DEBUG))
 	peer := NewPeer(log, testPeerdir, "192.168.0.1:8080")
 

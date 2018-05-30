@@ -58,12 +58,14 @@ func (spanner *Spanner) Init() error {
 	log := spanner.log
 	conf := spanner.conf
 
+	log.Info("gry---begin to NewBackupRelay")
 	backupRelay := NewBackupRelay(log, conf.Binlog, spanner)
 	if err := backupRelay.Init(); err != nil {
 		return err
 	}
 	spanner.backupRelay = backupRelay
 
+	log.Info("gry---begin to NewDiskCheck")
 	diskChecker := NewDiskCheck(log, conf.Binlog.LogDir)
 	if err := diskChecker.Init(); err != nil {
 		return err

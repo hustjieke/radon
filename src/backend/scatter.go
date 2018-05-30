@@ -53,6 +53,7 @@ func (scatter *Scatter) add(config *config.BackendConfig) error {
 	if _, ok := scatter.backends[config.Name]; ok {
 		return errors.Errorf("scatter.backend[%v].duplicate", config.Name)
 	}
+	log.Info("gry--scatter add backend config, NewPool")
 	pool := NewPool(scatter.log, config)
 	scatter.backends[config.Name] = pool
 	return nil
@@ -217,6 +218,7 @@ func (scatter *Scatter) LoadConfig() error {
 		return err
 	}
 	for _, backend := range conf.Backends {
+		log.Info("gry---for loop, scatter add backend config: %+v", backend)
 		if err := scatter.add(backend); err != nil {
 			log.Error("scatter.add.backend[%+v].error:%v", backend.Name, err)
 			return err
@@ -225,6 +227,7 @@ func (scatter *Scatter) LoadConfig() error {
 	}
 
 	// Add backup node.
+	log.Info("gry---add backup config if have")
 	if conf.Backup != nil {
 		if err := scatter.addBackup(conf.Backup); err != nil {
 			log.Error("scatter.add.backup[%+v].error:%v", conf.Backup.Name, err)

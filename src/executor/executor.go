@@ -50,8 +50,10 @@ func (et *Tree) Add(executor Executor) error {
 
 // Execute executes all Executor.Execute
 func (et *Tree) Execute() (*sqltypes.Result, error) {
+	log := et.log
 	// build tree
 	for _, plan := range et.planTree.Plans() {
+		log.Info("gry+++ planType: %+v", plan.Type())
 		switch plan.Type() {
 		case planner.PlanTypeDDL:
 			executor := NewDDLExecutor(et.log, plan, et.txn)

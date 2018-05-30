@@ -55,10 +55,14 @@ func (spanner *Spanner) ComQuery(session *driver.Session, query string, callback
 		qr.Warnings = 1
 		return returnQuery(qr, callback, err)
 	}
+	log.Info("gry++before TrimSpace: %+v", query)
 	query = strings.TrimSpace(query)
+	log.Info("gry++after TrimSpace: %+v", query)
 	query = strings.TrimSuffix(query, ";")
+	log.Info("gry++after TrimSuffix: %+v", query)
 
 	node, err := sqlparser.Parse(query)
+	log.Info("gry++node: %+v", node)
 	if err != nil {
 		log.Error("query[%v].parser.error: %v", query, err)
 		return sqldb.NewSQLError(sqldb.ER_SYNTAX_ERROR, "", err.Error())
@@ -189,11 +193,13 @@ func (spanner *Spanner) ComQuery(session *driver.Session, query string, callback
 		backupType := "/*backup*/"
 
 		snode := node.(*sqlparser.Select)
+		log.Info("gry++snode: %+v", snode)
 		if len(snode.Comments) > 0 {
 			if common.BytesToString(snode.Comments[0]) == backupType {
 				typ = backupType
 			}
 		}
+		log.Info("gry++typ: %+v", typ)
 
 		switch typ {
 		case backupType:
@@ -205,7 +211,9 @@ func (spanner *Spanner) ComQuery(session *driver.Session, query string, callback
 			log.Warning("proxy.select.for.backup:[%s].done", query)
 			return nil
 		default:
+			log.Info("gry+++ 进入函数前query: %+v, node: %+v", query, node)
 			if qr, err = spanner.handleSelect(session, query, node); err != nil {
+				log.Info("gry++++ 错误结果集: %+v", qr)
 				log.Error("proxy.select[%s].from.session[%v].error:%+v", query, session.ID(), err)
 				// Send to AP node if we have.
 				if hasBackup {

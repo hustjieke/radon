@@ -38,6 +38,7 @@ type Sessions struct {
 
 // NewSessions creates new session.
 func NewSessions(log *xlog.Log) *Sessions {
+	log.Info("gry---构造session when new proxy, session封装driver.Sessions,后者封装net.Conn")
 	return &Sessions{
 		log:      log,
 		sessions: make(map[uint32]*session),

@@ -245,6 +245,7 @@ func (r *Router) LoadConfig() error {
 	}
 
 	for k, v := range frms {
+		log.Info("gry---before load file,dbname: %+v", k)
 		for _, file := range v {
 			if err := r.loadTableFromFile(k, file); err != nil {
 				log.Error("router.load.table..from.file[%v].error:%+v", file, err)

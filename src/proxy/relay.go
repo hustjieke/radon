@@ -56,6 +56,7 @@ type BackupRelay struct {
 
 // NewBackupRelay creates new BackupRelay tuple.
 func NewBackupRelay(log *xlog.Log, conf *config.BinlogConfig, spanner *Spanner) *BackupRelay {
+	log.Info("gry---NewBackupRelay")
 	return &BackupRelay{
 		log:     log,
 		conf:    conf,
@@ -73,6 +74,7 @@ func (br *BackupRelay) Init() error {
 	br.relayRates = stats.NewRates("RelayRates", br.relayTimings, 1, time.Second)
 
 	// relay info.
+	log.Info("gry---BackupRelay init and br.relayInfo.Init")
 	br.relayInfo = binlog.NewInfo(log, conf, relayInfoFile)
 	if err := br.relayInfo.Init(); err != nil {
 		return err

@@ -104,6 +104,7 @@ func (spanner *Spanner) executeWithTimeout(session *driver.Session, database str
 	defer txn.Finish()
 
 	// txn limits.
+	log.Info("gry+++ timeout: %d", timeout)
 	txn.SetTimeout(timeout)
 	txn.SetMaxResult(conf.Proxy.MaxResultSize)
 
@@ -112,6 +113,7 @@ func (spanner *Spanner) executeWithTimeout(session *driver.Session, database str
 	defer sessions.TxnUnBinding(session)
 
 	plans, err := optimizer.NewSimpleOptimizer(log, database, query, node, router).BuildPlanTree()
+	log.Info("gry+++ plans: %+v", plans)
 	if err != nil {
 		return nil, err
 	}
@@ -161,6 +163,8 @@ func (spanner *Spanner) ExecuteStreamFetch(session *driver.Session, database str
 // Execute used to execute querys to shards.
 func (spanner *Spanner) Execute(session *driver.Session, database string, query string, node sqlparser.Statement) (*sqltypes.Result, error) {
 	// Execute.
+	log := spanner.log
+	log.Info("gry+++isTwoPC: ", spanner.isTwoPC())
 	if spanner.isTwoPC() {
 		if spanner.IsDML(node) {
 			return spanner.ExecuteTwoPC(session, database, query, node)

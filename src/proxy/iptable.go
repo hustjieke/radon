@@ -36,6 +36,7 @@ func NewIPTable(log *xlog.Log, conf *config.ProxyConfig) *IPTable {
 		iptable: make(map[string]*IP),
 	}
 
+	log.Info("gry---IPTable: %+v", conf.IPS)
 	if conf.IPS != nil {
 		for _, ip := range conf.IPS {
 			IP := &IP{ip: ip}

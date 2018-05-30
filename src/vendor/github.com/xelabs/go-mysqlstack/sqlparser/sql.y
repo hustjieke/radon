@@ -298,6 +298,7 @@ select_statement:
     sel.Limit = $3
     sel.Lock = $4
     $$ = sel
+    fmt.Printf("%v", sel)
   }
 | union_lhs union_op union_rhs order_by_opt limit_opt lock_opt
   {
