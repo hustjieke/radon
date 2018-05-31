@@ -51,6 +51,7 @@ func (spanner *Spanner) ComQuery(session *driver.Session, query string, callback
 
 	// Support for JDBC driver.
 	if strings.HasPrefix(query, "/*") {
+		log.Info("JDBC query: %+v", query)
 		qr, err := spanner.handleJDBCShows(session, query, nil)
 		qr.Warnings = 1
 		return returnQuery(qr, callback, err)
@@ -63,6 +64,7 @@ func (spanner *Spanner) ComQuery(session *driver.Session, query string, callback
 
 	node, err := sqlparser.Parse(query)
 	log.Info("gry++node: %+v", node)
+
 	if err != nil {
 		log.Error("query[%v].parser.error: %v", query, err)
 		return sqldb.NewSQLError(sqldb.ER_SYNTAX_ERROR, "", err.Error())
@@ -163,6 +165,7 @@ func (spanner *Spanner) ComQuery(session *driver.Session, query string, callback
 			spanner.logEvent(session, xbase.INSERT, query)
 		}
 		inode := node.(*sqlparser.Insert)
+		log.Info("inode.Action动作: %+v", inode.Action)
 		switch inode.Action {
 		case sqlparser.InsertStr:
 			spanner.auditLog(session, W, xbase.INSERT, query, qr)
@@ -192,14 +195,34 @@ func (spanner *Spanner) ComQuery(session *driver.Session, query string, callback
 		typ := ""
 		backupType := "/*backup*/"
 
+		// 就在这里加上虚拟表判断，如果有，则设置走backup，如果没有backup，提醒用户该功能必须在有backup的情况下使用
 		snode := node.(*sqlparser.Select)
+		log.Info("from:%T, %+v", snode.From[0], snode.From[0])
 		log.Info("gry++snode: %+v", snode)
+
 		if len(snode.Comments) > 0 {
 			if common.BytesToString(snode.Comments[0]) == backupType {
 				typ = backupType
 			}
 		}
 		log.Info("gry++typ: %+v", typ)
+		switch snode.From[0].(type) {
+		case *sqlparser.AliasedTableExpr:
+			log.Info("gry++进入AliasedTableExpr判断")
+			aliasTableExpr := snode.From[0].(*sqlparser.AliasedTableExpr)
+			dualTable := sqlparser.String(aliasTableExpr.As)
+			log.Info("gry++dualTable: %+v", dualTable)
+			if dualTable == sqlparser.String(aliasTableExpr.As) {
+				log.Info("gry++进入handleDual")
+				if qr, err = spanner.handleDual(session, query, node); err != nil {
+					log.Error("proxy.select.dual[%s].from.session[%v].error:%+v", query, session.ID(), err)
+				}
+				spanner.auditLog(session, R, xbase.SELECT, query, qr)
+				return returnQuery(qr, callback, err)
+			}
+		default:
+			log.Info("gry++default: 没有走handleDual")
+		}
 
 		switch typ {
 		case backupType:

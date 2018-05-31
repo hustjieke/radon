@@ -10,7 +10,6 @@
 package driver
 
 import (
-	"fmt" // add by gry
 	"net"
 	"runtime"
 	"runtime/debug"
@@ -79,10 +78,13 @@ func NewListener(log *xlog.Log, address string, handler Handler) (*Listener, err
 // Accept runs an accept loop until the listener is closed.
 func (l *Listener) Accept() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
+	log := l.log
 	for {
+		log.Info("循环监听Accept")
 		conn, err := l.listener.Accept()
 		if err != nil {
 			// Close() was probably called.
+			log.Info("conn may be closed")
 			return
 		}
 		ID := l.connectionID
@@ -122,6 +124,7 @@ func (l *Listener) handle(conn net.Conn, ID uint32) {
 	}()
 	session := newSession(log, ID, conn)
 	// Session check.
+	log.Info("调用子类spanner的SessionCheck(session)函数")
 	if err = l.handler.SessionCheck(session); err != nil {
 		log.Warning("session[%v].check.failed.error:%+v", ID, err)
 		session.writeErrFromError(err)
@@ -150,6 +153,7 @@ func (l *Listener) handle(conn net.Conn, ID uint32) {
 	}
 
 	//  Auth check.
+	log.Info("spanner AuthCheck 认证,区别于session认证")
 	if err = l.handler.AuthCheck(session); err != nil {
 		log.Warning("server.user[%+v].auth.check.failed", session.User())
 		session.writeErrFromError(err)
@@ -158,7 +162,7 @@ func (l *Listener) handle(conn net.Conn, ID uint32) {
 
 	// Check the database.
 	db := session.auth.Database()
-	fmt.Printf("gry+++db: %+v\n", db)
+	log.Info("gry+++Check the database.db: %+v\n", db)
 	if db != "" {
 		if err = l.handler.ComInitDB(session, db); err != nil {
 			log.Error("server.cominitdb[%s].error:%+v", db, err)
@@ -175,6 +179,7 @@ func (l *Listener) handle(conn net.Conn, ID uint32) {
 	for {
 		// Reset packet sequence ID.
 		session.packets.ResetSeq()
+		log.Info("authPkt: %+v", authPkt)
 		if data, err = session.packets.Next(); err != nil {
 			return
 		}
@@ -184,7 +189,8 @@ func (l *Listener) handle(conn net.Conn, ID uint32) {
 			return
 		case sqldb.COM_INIT_DB:
 			db := l.parserComInitDB(data)
-			fmt.Printf("gry+++db: %+v\n", db)
+			// fmt.Printf("gry+++db: %+v\n", db)
+			log.Info("gry+++case sqldb.COM_INIT_DB, db-name: %+v\n", db)
 			if err = l.handler.ComInitDB(session, db); err != nil {
 				if werr := session.writeErrFromError(err); werr != nil {
 					return
@@ -201,7 +207,7 @@ func (l *Listener) handle(conn net.Conn, ID uint32) {
 			}
 		case sqldb.COM_QUERY:
 			query := l.parserComQuery(data)
-			fmt.Printf("gry+++: %+v\n", query)
+			log.Info("gry+++ sqldb.COM_QUERY: %+v\n", query)
 			if err = l.handler.ComQuery(session, query, func(qr *sqltypes.Result) error {
 				return session.writeResult(qr)
 			}); err != nil {

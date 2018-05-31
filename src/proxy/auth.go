@@ -48,6 +48,7 @@ func (spanner *Spanner) SessionCheck(s *driver.Session) error {
 	}
 
 	log := spanner.log
+	log.Info("spanner开始检测SessionCheck")
 	host, _, err := net.SplitHostPort(s.Addr())
 	if err != nil {
 		log.Error("proxy.spanner.split.address.error:%+v", s.Addr())
@@ -76,13 +77,16 @@ func (spanner *Spanner) AuthCheck(s *driver.Session) error {
 
 	log := spanner.log
 	user := s.User()
+	log.Info("user: %+v", user)
 
 	// Server salt.
 	salt := s.Salt()
 	// Client response.
 	resp := s.Scramble()
+	log.Info("Client response: %+v", resp)
 
 	query := fmt.Sprintf("select authentication_string from mysql.user where user='%s'", user)
+	log.Info("spanner.ExecuteSingle: %+v", query)
 	qr, err := spanner.ExecuteSingle(query)
 
 	// Query error.

@@ -100,6 +100,7 @@ func (p *Proxy) Start() {
 		log.Panic("proxy.spanner.init.panic:%+v", err)
 	}
 	log.Info("gry---endpoint: %+v", endpoint)
+	log.Info("gry+++构造NewListener, 导入spanner,初始化listener的Handler,spanner相当于Handler的子类")
 	svr, err := driver.NewListener(log, endpoint, spanner)
 	if err != nil {
 		log.Panic("proxy.start.error[%+v]", err)
@@ -107,6 +108,7 @@ func (p *Proxy) Start() {
 	p.spanner = spanner
 	p.listener = svr
 	log.Info("proxy.start[%v]...", endpoint)
+	log.Info("gry+++start之后开启监听模式: go svr.Accept(), svr用svrlisten好点")
 	go svr.Accept()
 }
 

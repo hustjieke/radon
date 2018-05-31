@@ -24,6 +24,11 @@ import (
 	"github.com/xelabs/go-mysqlstack/sqlparser/depends/sqltypes"
 )
 
+// handle dual
+func (spanner *Spanner) handleDual(session *driver.Session, query string, node sqlparser.Statement, callback func(qr *sqltypes.Result) error) (*sqltypes.Result, error) {
+	return spanner.ExecuteSingle(query)
+}
+
 // handleShowDatabases used to handle the 'SHOW DATABASES' command.
 func (spanner *Spanner) handleShowDatabases(session *driver.Session, query string, node sqlparser.Statement) (*sqltypes.Result, error) {
 	return spanner.ExecuteSingle(query)
