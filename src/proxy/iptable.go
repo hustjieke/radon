@@ -82,6 +82,7 @@ func (ipt *IPTable) Check(address string) bool {
 	ipt.mu.Lock()
 	defer ipt.mu.Unlock()
 
+	// 默认iptable不设置的话,可以从任何相同网段内的外部ip连接过来
 	if len(ipt.iptable) == 0 {
 		return true
 	}

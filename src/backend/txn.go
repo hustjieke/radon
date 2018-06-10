@@ -195,12 +195,14 @@ func (txn *Txn) reFetchTwopcConnection(backend string) (Connection, error) {
 // normalConnection used to get a connection via backend name from pool.
 // The Connection is stored in normalConnections for recycling.
 func (txn *Txn) normalConnection(backend string) (Connection, error) {
+	log := txn.log
 	pool, ok := txn.backends[backend]
 	if !ok {
 		txnCounters.Add(txnCounterNormalConnectionError, 1)
 		return nil, errors.Errorf("txn.can.not.get.normal.connection.by.backend[%+v].from.pool", backend)
 	}
 	conn, err := pool.Get()
+	log.Info("gry---pool.Get(), conn: %+v", conn)
 	if err != nil {
 		return nil, err
 	}
@@ -401,13 +403,16 @@ func (txn *Txn) execute(req *xcontext.RequestContext) (*sqltypes.Result, error) 
 		var c Connection
 		defer wg.Done()
 
+		log.Info("gry---backend of oneShard: %+v", back)
 		if c, x = txn.fetchOneConnection(back); x != nil {
 			log.Error("txn.fetch.connection.on[%s].querys[%v].error:%+v", back, querys, x)
 		} else {
 			for _, query := range querys {
+				log.Info("gry---query: %+v", query)
 				var innerqr *sqltypes.Result
 
 				// Execute to backends.
+				log.Info("gry---Execute to backends.conn: %+v", c)
 				if innerqr, x = c.ExecuteWithLimits(query, txn.timeout, txn.maxResult); x != nil {
 					log.Error("txn.execute.on[%v].query[%v].error:%+v", c.Address(), query, x)
 					break
@@ -428,8 +433,11 @@ func (txn *Txn) execute(req *xcontext.RequestContext) (*sqltypes.Result, error) 
 	switch req.Mode {
 	// ReqSingle mode: execute on the first one shard of txn.backends.
 	case xcontext.ReqSingle:
+		log.Info("gry---xcontext.ReqSingle, RawQuery: %+v", req.RawQuery)
 		qs := []string{req.RawQuery}
 		for back := range txn.backends {
+			log.Info("gry--txn.backends.back: %+v", back)
+			log.Info("gry--txn.backends.[back].conf: %+v", txn.backends[back].conf)
 			wg.Add(1)
 			oneShard(back, txn, qs)
 			break

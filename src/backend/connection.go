@@ -193,6 +193,7 @@ func (c *connection) ExecuteWithLimits(query string, timeout int, memlimits int)
 	}
 
 	// execute.
+	log.Info("gry---c.driver.FetchAllWithFunc, query:%+v", query)
 	if qr, err = c.driver.FetchAllWithFunc(query, -1, checkFunc); err != nil {
 		c.counters.Add(poolCounterBackendExecuteAllError, 1)
 		log.Error("conn[%s].execute[%s].error:%+v", c.address, query, err)
