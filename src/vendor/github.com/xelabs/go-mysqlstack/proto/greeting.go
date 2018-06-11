@@ -118,6 +118,12 @@ func (g *Greeting) Pack() []byte {
 	pluginName := "mysql_native_password"
 	buf.WriteString(pluginName)
 	buf.WriteZero(1)
+	// str := (*string)(unsafe.Pointer(&buf.Datas()))
+
+	//str := string(buf.Datas())
+	//fmt.Println("************proto/greeting.go_pack():\n")
+	//fmt.Println("gry--greeting datas: %+v\n", str)
+	//fmt.Println("************\n")
 	return buf.Datas()
 }
 

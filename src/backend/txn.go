@@ -201,7 +201,7 @@ func (txn *Txn) normalConnection(backend string) (Connection, error) {
 		txnCounters.Add(txnCounterNormalConnectionError, 1)
 		return nil, errors.Errorf("txn.can.not.get.normal.connection.by.backend[%+v].from.pool", backend)
 	}
-	conn, err := pool.Get()
+	conn, err := pool.Get() // 里面有收发数据包的动作
 	log.Info("gry---pool.Get(), conn: %+v", conn)
 	if err != nil {
 		return nil, err
