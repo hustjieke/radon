@@ -62,7 +62,7 @@ type Listener struct {
 // NewListener creates a new Listener.
 func NewListener(log *xlog.Log, address string, handler Handler) (*Listener, error) {
 	log.Info("gry--监听endpoint(address): %+v", address)
-	listener, err := net.Listen("tcp", address)
+	listener, err := net.Listen("tcp", address) // 比如本机的就是":3308"
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func NewListener(log *xlog.Log, address string, handler Handler) (*Listener, err
 	return &Listener{
 		log:          log,
 		address:      address,
-		handler:      handler,
+		handler:      handler, // 封装的spanner
 		listener:     listener,
 		connectionID: 1,
 	}, nil
@@ -121,7 +121,7 @@ func (l *Listener) handle(conn net.Conn, ID uint32) {
 		}
 	}()
 	session := newSession(log, ID, conn)
-	// Session check.检查是否达到最大连接数,是否本机,以及ip表检查
+	// Session check.检查是否达到最大连接数,是否本机,以及ip列表检查
 	if err = l.handler.SessionCheck(session); err != nil {
 		log.Warning("session[%v].check.failed.error:%+v", ID, err)
 		session.writeErrFromError(err)
@@ -129,25 +129,30 @@ func (l *Listener) handle(conn net.Conn, ID uint32) {
 	}
 
 	// Session register.前面检查通过,则将此新session注册到spanner
-	l.handler.NewSession(session)
+	l.handler.NewSession(session) // 用addNewSession(session)更形象一点
 	defer l.handler.SessionClosed(session)
 
 	// Greeting packet. 打包,这边应该就是看到的登入界面招呼了,这里是radon和连接者的交互,还不是和mysql
+	// 上面理解的不对,这里就是打包greeting信息,然后写入到conn对应的socket文件
 	greetingPkt = session.greeting.Pack()
-	// 写入
+	// 写入,看上面newSession封装的conn,packets包是绑定conn的网络数据包(stream),这里是往mysqlcli写,
+	// 就是我们能见到的greeting界面
 	if err = session.packets.Write(greetingPkt); err != nil {
 		log.Error("server.write.greeting.packet.error: %v", err)
 		return
 	}
 
 	// Auth packet. 获取packets到Next stream,获取认证信息,上面是发,这里是响应
+	// 这里的Next()封装的就是read,跟上面的写对应
 	if authPkt, err = session.packets.Next(); err != nil {
 		log.Error("server.read.auth.packet.error: %v", err)
 		return
 	}
-	// str := string(authPkt)
-	// log.Info("gry----auth.Unpack之前，authPkt: %+v", str)
-	// 这里UnPack出了user信息,整个auth结构体的信息
+
+	str := common.BytesToString(authPkt)
+	log.Info("gry----auth.Unpack之前，authPkt: %+v", str)
+	// 这里UnPack出了user信息,整个auth结构体的信息,推测是mysql客户传递接收到的mysql -utest -ptest -P3308中用户"test"和密码"test"
+	// 这就是代理的作用,mysql认为radon是mysql-server
 	if err = session.auth.UnPack(authPkt); err != nil {
 		log.Error("server.unpack.auth.error: %v", err)
 		return

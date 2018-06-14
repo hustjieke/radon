@@ -156,7 +156,8 @@ const (
 	// This is an interactive client
 	CLIENT_INTERACTIVE = uint32(1 << 10)
 
-	// Switch to SSL after handshake
+	// Switch to SSL after handshake  什么是SSL?
+	// SSL(Secure Sockets Layer 安全套接层),及其继任者传输层安全（Transport Layer Security，TLS）是为网络通信提供安全及数据完整性的一种安全协议
 	CLIENT_SSL = uint32(1 << 11)
 
 	// IGNORE sigpipes

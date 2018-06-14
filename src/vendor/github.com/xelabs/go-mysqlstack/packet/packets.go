@@ -73,7 +73,7 @@ func (p *Packets) Write(payload []byte) error {
 	pkt.WriteU8(p.seq)
 
 	// body
-	fmt.Println("********packet/packets.go_Write()\n写数发包********\n")
+	fmt.Println("********packet/packets.go--func--Write()\n写数发包********\n")
 	pkt.WriteBytes(payload)
 	if err := p.stream.Write(pkt.Datas()); err != nil {
 		return err

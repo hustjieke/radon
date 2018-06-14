@@ -10,6 +10,7 @@
 package proto
 
 import (
+	"fmt"
 	"math/rand"
 	"time"
 
@@ -116,14 +117,15 @@ func (g *Greeting) Pack() []byte {
 
 	// string[NUL]    auth-plugin name
 	pluginName := "mysql_native_password"
+	fmt.Println("****\nfrom proto/greeting.go--func--Pack():\npluginName: mysql_native_password\n*****\n")
 	buf.WriteString(pluginName)
 	buf.WriteZero(1)
-	// str := (*string)(unsafe.Pointer(&buf.Datas()))
 
-	//str := string(buf.Datas())
-	//fmt.Println("************proto/greeting.go_pack():\n")
-	//fmt.Println("gry--greeting datas: %+v\n", str)
-	//fmt.Println("************\n")
+	str := common.BytesToString(buf.Datas())
+	fmt.Println("************proto/greeting.go_pack():\n")
+	fmt.Println("gry--greeting datas: %+v\n", str)
+	fmt.Println("************\n")
+
 	return buf.Datas()
 }
 

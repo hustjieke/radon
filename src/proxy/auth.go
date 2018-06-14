@@ -16,6 +16,7 @@ import (
 	"net"
 	"strings"
 
+	"github.com/xelabs/go-mysqlstack/common"
 	"github.com/xelabs/go-mysqlstack/driver"
 	"github.com/xelabs/go-mysqlstack/sqldb"
 )
@@ -80,10 +81,12 @@ func (spanner *Spanner) AuthCheck(s *driver.Session) error {
 
 	// Server salt.
 	salt := s.Salt()
-	log.Info("gry---server salt: %+v", salt)
+	strSalt := common.BytesToString(salt)
+	log.Info("gry---server salt: %+v", strSalt)
 	// Client response.
 	resp := s.Scramble()
-	log.Info("gry---client resp: %+v", resp)
+	strResp := common.BytesToString(resp)
+	log.Info("gry---client resp: %+v", strResp)
 
 	query := fmt.Sprintf("select authentication_string from mysql.user where user='%s'", user)
 	log.Info("gry---执行单条query: %+v", query)

@@ -184,7 +184,7 @@ func (s *Session) Schema() string {
 
 // User returns the user of auth.
 func (s *Session) User() string {
-	s.mu.RLock()
+	s.mu.RLock() // 这里有必要枷锁么,只有在连接的时候才会调用一次吧
 	defer s.mu.RUnlock()
 	return s.auth.User()
 }
