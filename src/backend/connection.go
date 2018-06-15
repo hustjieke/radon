@@ -84,6 +84,8 @@ func NewConnection(log *xlog.Log, pool *Pool) Connection {
 func (c *connection) Dial() error {
 	var err error
 	defer mysqlStats.Record("conn.dial", time.Now())
+	log := c.log
+	log.Info("Dial")
 
 	if c.driver, err = driver.NewConn(c.user, c.password, c.address, "", c.charset); err != nil {
 		c.log.Error("conn[%s].dial.error:%+v", c.address, err)

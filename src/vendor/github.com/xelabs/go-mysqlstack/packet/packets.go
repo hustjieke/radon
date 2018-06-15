@@ -46,6 +46,7 @@ func NewPackets(c net.Conn) *Packets {
 
 // Next used to read the next packet.
 func (p *Packets) Next() ([]byte, error) {
+	fmt.Println("Get pack:packet/packets.go:Next()--p.seq: %+v", (int)(p.seq))
 	pkt, err := p.stream.Read()
 	if err != nil {
 		return nil, err
@@ -55,6 +56,7 @@ func (p *Packets) Next() ([]byte, error) {
 		return nil, sqldb.NewSQLError(sqldb.ER_MALFORMED_PACKET, "pkt.read.seq[%v]!=pkt.actual.seq[%v]", pkt.SequenceID, p.seq)
 	}
 	p.seq++
+	fmt.Println("Get pack:packet/packets.go:Next()--p.seq after++: %+v", (int)(p.seq))
 	return pkt.Datas, nil
 }
 
@@ -73,7 +75,7 @@ func (p *Packets) Write(payload []byte) error {
 	pkt.WriteU8(p.seq)
 
 	// body
-	fmt.Println("********packet/packets.go--func--Write()\n写数发包********\n")
+	fmt.Println("********packet/packets.go--func--Write()\nwrite and send pack********\n")
 	pkt.WriteBytes(payload)
 	if err := p.stream.Write(pkt.Datas()); err != nil {
 		return err
@@ -169,6 +171,7 @@ func (p *Packets) Append(rawdata []byte) error {
 // ReadEOF used to read the EOF packet.
 func (p *Packets) ReadEOF() error {
 	// EOF packet
+	fmt.Println("packet/packets.go---ReadEOF()")
 	data, err := p.Next()
 	if err != nil {
 		return err
@@ -240,6 +243,7 @@ func (p *Packets) ReadComQueryResponse() (*proto.OK, int, error, error) {
 	var data []byte
 	var numbers uint64
 
+	fmt.Println("packet/packets.go---ReadComQueryResponse()")
 	if data, err = p.Next(); err != nil {
 		return nil, 0, nil, err
 	}
@@ -247,15 +251,18 @@ func (p *Packets) ReadComQueryResponse() (*proto.OK, int, error, error) {
 	ok := &proto.OK{}
 	switch data[0] {
 	case proto.OK_PACKET:
+		fmt.Println("proto.OK_PACKET")
 		// OK.
 		if ok, err = p.ParseOK(data); err != nil {
 			return nil, 0, nil, err
 		}
 		return ok, 0, nil, nil
 	case proto.ERR_PACKET:
+		fmt.Println("proto.ERR_PACKET")
 		return nil, 0, p.ParseERR(data), nil
 	case 0xfb:
 		// Local infile
+		fmt.Println("proto.0xfb")
 		return nil, 0, sqldb.NewSQLError(sqldb.ER_UNKNOWN_ERROR, "Local.infile.not.implemented"), nil
 	}
 	// column count
@@ -273,6 +280,7 @@ func (p *Packets) ReadColumns(colNumber int) ([]*querypb.Field, error) {
 	// column info
 	columns := make([]*querypb.Field, 0, colNumber)
 	for i := 0; i < colNumber; i++ {
+		fmt.Println("packet/packets.go___ReadColumns(): %+v", i)
 		if data, err = p.Next(); err != nil {
 			return nil, err
 		}

@@ -96,10 +96,13 @@ func (l *Listener) parserComInitDB(data []byte) string {
 }
 
 func (l *Listener) parserComQuery(data []byte) string {
+	log := l.log
 	// Trim the right.
 	data = data[1:]
 	last := len(data) - 1
+	log.Info("gry----query length: %+v", last+1)
 	if data[last] == ';' {
+		log.Info("gry----query has ';'")
 		data = data[:last]
 	}
 	return common.BytesToString(data)
@@ -178,12 +181,15 @@ func (l *Listener) handle(conn net.Conn, ID uint32) {
 		session.SetSchema(db)
 	}
 
+	// 如果是use db, mysqlcli session会先发SELECT DATABASE(),再是use gry_db,所以要走好几次
+	// mysqlcli接到返回点result之后不做处理,继续执行use gry_db,所以界面是看不到select的结果,
+	// 之后，再执行show databases
 	if err = session.packets.WriteOK(0, 0, session.greeting.Status(), 0); err != nil {
 		return
 	}
 
 	for {
-		log.Info("gry--:进入for循环")
+		log.Info("gry--:for loop")
 		// Reset packet sequence ID.
 		session.packets.ResetSeq()
 		if data, err = session.packets.Next(); err != nil {
@@ -226,9 +232,14 @@ func (l *Listener) handle(conn net.Conn, ID uint32) {
 				}
 				continue
 			}
+		// case sqldb.COM_FIELD_LIST: // e.g. show columns from table_xxx;
+		//continue
 		default:
+			// add by gry
+			query := l.parserComQuery(data)
 			cmd := sqldb.CommandString(data[0])
 			log.Error("session.command:%s.not.implemented", cmd)
+			log.Error("gry---query: %s", query)
 			sqlErr := sqldb.NewSQLError(sqldb.ER_UNKNOWN_ERROR, "command handling not implemented yet: %s", cmd)
 			if err := session.writeErrFromError(sqlErr); err != nil {
 				return

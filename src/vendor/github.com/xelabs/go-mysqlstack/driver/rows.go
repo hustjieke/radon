@@ -11,6 +11,7 @@ package driver
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/xelabs/go-mysqlstack/common"
 	"github.com/xelabs/go-mysqlstack/proto"
@@ -75,6 +76,7 @@ func (r *TextRows) Next() bool {
 		return false
 	}
 
+	fmt.Println("driver/rows.go---func (r *TextRows) Next()")
 	if r.data, r.err = r.c.NextPacket(); r.err != nil {
 		r.end = true
 		return false

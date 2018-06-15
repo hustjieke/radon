@@ -11,6 +11,7 @@ package driver
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"strings"
 	"time"
@@ -180,6 +181,7 @@ func (c *conn) query(command byte, sql string) (Rows, error) {
 	}()
 
 	// Query.
+	fmt.Println("gry---driver.client.go__sql: %+v", sql)
 	if err = c.packets.WriteCommand(command, common.StringToBytes(sql)); err != nil {
 		return nil, err
 	}
@@ -265,10 +267,12 @@ func (c *conn) FetchAllWithFunc(sql string, maxrows int, fn Func) (*sqltypes.Res
 	var qrRow []sqltypes.Value
 	var qrRows [][]sqltypes.Value
 
+	fmt.Println("before c.query")
 	if iRows, err = c.query(sqldb.COM_QUERY, sql); err != nil {
 		return nil, err
 	}
 
+	fmt.Println("driver/client.go---FetchAllWithFunc()")
 	for iRows.Next() {
 		// callback check.
 		if err = fn(iRows); err != nil {
@@ -284,6 +288,7 @@ func (c *conn) FetchAllWithFunc(sql string, maxrows int, fn Func) (*sqltypes.Res
 			return nil, err
 		}
 		if qrRow != nil {
+			fmt.Println("qrRow not nil")
 			qrRows = append(qrRows, qrRow)
 		}
 	}

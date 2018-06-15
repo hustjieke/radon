@@ -50,6 +50,9 @@ func (conn *Connection) StreamFetch(query string) (driver.Rows, error) {
 func NewPool(log *xlog.Log, cap int, address string, user string, password string) (*Pool, error) {
 	conns := make(chan *Connection, cap)
 	for i := 0; i < cap; i++ {
+		log.Info("连接池大小：%+v", cap)
+		log.Info("连接池中当前new的连接ID：%+v", i)
+		log.Info("连接address：%+v, user: %+v, password: %+v", address, user, password)
 		client, err := driver.NewConn(user, password, address, "", "utf8")
 		if err != nil {
 			return nil, err

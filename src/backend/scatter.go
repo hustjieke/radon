@@ -200,6 +200,7 @@ func (scatter *Scatter) LoadConfig() error {
 	// Create it if the backends config not exists.
 	if _, err := os.Stat(file); os.IsNotExist(err) {
 		backends := config.BackendsConfig{}
+		log.Info("scatter LoadConfig(),写入backends和backup到conf")
 		if err := config.WriteConfig(file, backends); err != nil {
 			log.Error("scatter.flush.backends.to.file[%v].error:%v", file, err)
 			return err

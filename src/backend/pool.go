@@ -66,8 +66,11 @@ func NewPool(log *xlog.Log, conf *config.BackendConfig) *Pool {
 	return p
 }
 
+// 这里为什么用reconnect呢，明明是New一个conn,又或者,之前的
+// 连接断开了,新建重新连接的意思?然后就复用这个函数了
 func (p *Pool) reconnect() (Connection, error) {
 	log := p.log
+	log.Info("Pool: 创建新的conn")
 	c := NewConnection(log, p)
 	if err := c.Dial(); err != nil {
 		log.Error("pool.reconnect.dial.error:%+v", err)
