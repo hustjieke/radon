@@ -119,6 +119,60 @@ func (spanner *Spanner) handleShowCreateTable(session *driver.Session, query str
 	return qr, nil
 }
 
+func (spanner *Spanner) handleShowColumns(session *driver.Session, query string, node sqlparser.Statement) (*sqltypes.Result, error) {
+	router := spanner.router
+	ast := node.(*sqlparser.Show)
+
+	table := ast.Table.Name.String()
+	database := session.Schema()
+	if !ast.Table.Qualifier.IsEmpty() {
+		database = ast.Table.Qualifier.String()
+	}
+	if database == "" {
+		return nil, sqldb.NewSQLError(sqldb.ER_NO_DB_ERROR, "")
+	}
+	// Check the database ACL.
+	if err := router.DatabaseACL(database); err != nil {
+		return nil, err
+	}
+
+	// Get one table from the router.
+	parts, err := router.Lookup(database, table, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	partTable := parts[0].Table
+	backend := parts[0].Backend
+	rewritten := fmt.Sprintf("SHOW COLUMNS FROM %s.%s", database, partTable)
+	qr, err := spanner.ExecuteOnThisBackend(backend, rewritten)
+	if err != nil {
+		return nil, err
+	}
+
+	// 为什么2列跟6列的结果不影响最后的显示???都正常运行
+	// 'show columns has six columns.
+	c1 := qr.Rows[0][0]
+	c2 := qr.Rows[0][1]
+	c3 := qr.Rows[0][1]
+	c4 := qr.Rows[0][1]
+	c5 := qr.Rows[0][1]
+	c6 := qr.Rows[0][1]
+	// Replace the partition table to raw table.
+	c1Val := strings.Replace(string(c1.Raw()), partTable, table, 1)
+	c2Val := strings.Replace(string(c2.Raw()), partTable, table, 1)
+	c3Val := strings.Replace(string(c3.Raw()), partTable, table, 1)
+	c4Val := strings.Replace(string(c4.Raw()), partTable, table, 1)
+	c5Val := strings.Replace(string(c5.Raw()), partTable, table, 1)
+	c6Val := strings.Replace(string(c6.Raw()), partTable, table, 1)
+	qr.Rows[0][0] = sqltypes.MakeTrusted(c1.Type(), []byte(c1Val))
+	qr.Rows[0][1] = sqltypes.MakeTrusted(c2.Type(), []byte(c2Val))
+	qr.Rows[0][2] = sqltypes.MakeTrusted(c3.Type(), []byte(c3Val))
+	qr.Rows[0][3] = sqltypes.MakeTrusted(c4.Type(), []byte(c4Val))
+	qr.Rows[0][4] = sqltypes.MakeTrusted(c5.Type(), []byte(c5Val))
+	qr.Rows[0][5] = sqltypes.MakeTrusted(c6.Type(), []byte(c6Val))
+	return qr, nil
+}
+
 // handleShowProcesslist used to handle the query "SHOW PROCESSLIST".
 func (spanner *Spanner) handleShowProcesslist(session *driver.Session, query string, node sqlparser.Statement) (*sqltypes.Result, error) {
 	sessions := spanner.sessions

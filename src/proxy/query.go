@@ -113,6 +113,10 @@ func (spanner *Spanner) ComQuery(session *driver.Session, query string, callback
 			}
 		case sqlparser.ShowTablesStr:
 			if qr, err = spanner.handleShowTables(session, query, node); err != nil {
+				log.Error("proxy.show.columns[%s].from.session[%v].error:%+v", query, session.ID(), err)
+			}
+		case sqlparser.ShowColumnStr:
+			if qr, err = spanner.handleShowColumns(session, query, node); err != nil {
 				log.Error("proxy.show.tables[%s].from.session[%v].error:%+v", query, session.ID(), err)
 			}
 		case sqlparser.ShowCreateTableStr:

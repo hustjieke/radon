@@ -889,6 +889,7 @@ const (
 	ShowVariablesStr      = "variables"
 	ShowBinlogEventsStr   = "binlog events"
 	ShowUnsupportedStr    = "unsupported"
+	ShowColumnStr         = "columns"
 )
 
 // Format formats the node.
@@ -906,6 +907,13 @@ func (node *Show) Format(buf *TrackedBuffer) {
 			buf.Myprintf(" from gtid '%s'", node.From)
 		}
 		buf.Myprintf("%v", node.Limit)
+	case ShowColumnStr:
+		buf.Myprintf("show %s", node.Type)
+		if node.Table.Name.String() != "" {
+			buf.Myprintf(" from %s", node.Table.Name.String())
+		} else {
+			buf.Myprintf(" from NullTable %s", node.Table.Name.String())
+		}
 	default:
 		buf.Myprintf("show %s", node.Type)
 	}
