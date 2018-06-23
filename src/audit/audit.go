@@ -85,16 +85,16 @@ func (a *Audit) Init() error {
 		return err
 	}
 
-	a.wg.Add(1)
+	a.wg.Add(1) // gry: go routine +1
 	go func(audit *Audit) {
 		defer a.wg.Done()
-		a.eventConsumer()
+		a.eventConsumer() // gry: consumer event, event is a struct
 	}(a)
 
 	a.wg.Add(1)
 	go func(audit *Audit) {
 		defer a.wg.Done()
-		a.purge()
+		a.purge() // purge old file if the log file is old than specified time
 	}(a)
 	log.Info("audit.init.done")
 	return nil
@@ -172,7 +172,7 @@ func (a *Audit) purge() {
 	defer a.ticker.Stop()
 	for {
 		select {
-		case <-a.ticker.C:
+		case <-a.ticker.C: // gry: reach the purge time, how much the time is??
 			a.doPurge()
 		case <-a.done:
 			return
@@ -182,7 +182,7 @@ func (a *Audit) purge() {
 
 func (a *Audit) doPurge() {
 	log := a.log
-	if a.conf.ExpireHours == 0 {
+	if a.conf.ExpireHours == 0 { // gry: dao qi shi jian
 		return
 	}
 
