@@ -58,7 +58,7 @@ func NewRouter(log *xlog.Log, metadir string, conf *config.RouterConfig) *Router
 		log:     log,
 		metadir: metadir,
 		conf:    conf,
-		dbACL:   NewDatabaseACL(),
+		dbACL:   NewDatabaseACL(), // gry:mysql default system dbs
 		Schemas: make(map[string]*Schema),
 	}
 	return route
