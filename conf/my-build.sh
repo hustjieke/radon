@@ -1,0 +1,22 @@
+cmake \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DCMAKE_INSTALL_PREFIX=/home/hustjason/github/percona-server/xpkg/install \
+    -DSYSCONFDIR=/home/hustjason/github/percona-server/xpkg/etc \
+    -DMYSQL_DATADIR=/home/hustjason/github/percona-server/xpkg/data \
+    -DMYSQL_UNIX_ADDR=/home/hustjason/github/percona-server/xpkg/tmp/mysqld.sock \
+    -DMYSQL_USER=gaoriyao \
+    -DMYSQL_TCP_PORT=3309 \
+    -DWITH_MYISAM_STORAGE_ENGINE=1 \
+    -DWITH_INNOBASE_STORAGE_ENGINE=1 \
+    -DWITH_TOKUDB_STORAGE_ENGINE=1 \
+    -DWITH_MEMORY_STORAGE_ENGINE=1 \
+    -DWITH_PARTITION_STORAGE_ENGINE=1 \
+    -DEXTRA_CHARSETS=all \
+    -DDEFAULT_CHARSET=utf8 \
+    -DDEFAULT_COLLATION=utf8_general_ci \
+    -DENABLED_LOCAL_INFILE=1 \
+    -DWITH_DEBUG=1 \
+    -DWITH_DEBUG=1 \
+    -DWITH_BOOST=/home/hustjason/github/percona-server/extra/boost/boost_1_59_0 \
+
+    make -j4
