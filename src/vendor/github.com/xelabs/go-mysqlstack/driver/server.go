@@ -10,6 +10,7 @@
 package driver
 
 import (
+	"fmt"
 	"net"
 	"runtime"
 	"runtime/debug"
@@ -99,6 +100,16 @@ func (l *Listener) parserComQuery(data []byte) string {
 	data = data[1:]
 	last := len(data) - 1
 	if data[last] == ';' {
+		data = data[:last]
+	}
+	return common.BytesToString(data)
+}
+
+func (l *Listener) parserComFieldList(data []byte) string {
+	// Trim the right.
+	data = data[1:]
+	last := len(data) - 1
+	if data[last] == 0 {
 		data = data[:last]
 	}
 	return common.BytesToString(data)
@@ -198,6 +209,23 @@ func (l *Listener) handle(conn net.Conn, ID uint32) {
 			}
 		case sqldb.COM_QUERY:
 			query := l.parserComQuery(data)
+			if err = l.handler.ComQuery(session, query, func(qr *sqltypes.Result) error {
+				return session.writeResult(qr)
+			}); err != nil {
+				log.Error("server.handle.query.from.session[%v].error:%+v.query[%s]", ID, err, query)
+				if werr := session.writeErrFromError(err); werr != nil {
+					return
+				}
+				continue
+			}
+		case sqldb.COM_FIELD_LIST:
+			// As of MySQL 5.7.11, COM_FIELD_LIST is deprecated and will be removed in a
+			// future version of MySQL. Instead, use mysql_query() to execute a SHOW COLUMNS
+			// statement.
+			// For more details, see: "https://dev.mysql.com/doc/internals/en/com-field-list.html"
+			tbl := l.parserComFieldList(data)
+			query := fmt.Sprintf("show columns from %s", tbl)
+
 			if err = l.handler.ComQuery(session, query, func(qr *sqltypes.Result) error {
 				return session.writeResult(qr)
 			}); err != nil {
