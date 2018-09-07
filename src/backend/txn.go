@@ -93,6 +93,7 @@ type Transaction interface {
 
 	SetTimeout(timeout int)
 	SetMaxResult(max int)
+	SetIsSingleStatSelect(isMultiStat bool)
 
 	Execute(req *xcontext.RequestContext) (*sqltypes.Result, error)
 	ExecuteRaw(database string, query string) (*sqltypes.Result, error)
@@ -100,38 +101,40 @@ type Transaction interface {
 
 // Txn tuple.
 type Txn struct {
-	log               *xlog.Log
-	id                uint64
-	xid               string
-	mu                sync.Mutex
-	mgr               *TxnManager
-	req               *xcontext.RequestContext
-	txnd              *TxnDetail
-	twopc             bool
-	start             time.Time
-	state             sync2.AtomicInt32
-	xaState           sync2.AtomicInt32
-	backends          map[string]*Pool
-	timeout           int
-	maxResult         int
-	errors            int
-	twopcConnections  map[string]Connection
-	normalConnections []Connection
-	twopcConnMu       sync.RWMutex
-	normalConnMu      sync.RWMutex
+	log                *xlog.Log
+	id                 uint64
+	xid                string
+	mu                 sync.Mutex
+	mgr                *TxnManager
+	req                *xcontext.RequestContext
+	txnd               *TxnDetail
+	twopc              bool
+	isSingleStatSelect bool // is single statement select transaction or not
+	start              time.Time
+	state              sync2.AtomicInt32
+	xaState            sync2.AtomicInt32
+	backends           map[string]*Pool
+	timeout            int
+	maxResult          int
+	errors             int
+	twopcConnections   map[string]Connection
+	normalConnections  []Connection
+	twopcConnMu        sync.RWMutex
+	normalConnMu       sync.RWMutex
 }
 
 // NewTxn creates the new Txn.
 func NewTxn(log *xlog.Log, txid uint64, mgr *TxnManager, backends map[string]*Pool) (*Txn, error) {
 	txn := &Txn{
-		log:               log,
-		id:                txid,
-		mgr:               mgr,
-		backends:          backends,
-		start:             time.Now(),
-		twopcConnections:  make(map[string]Connection),
-		normalConnections: make([]Connection, 0, 8),
-		state:             sync2.NewAtomicInt32(int32(txnStateLive)),
+		log:                log,
+		id:                 txid,
+		mgr:                mgr,
+		backends:           backends,
+		start:              time.Now(),
+		isSingleStatSelect: false,
+		twopcConnections:   make(map[string]Connection),
+		normalConnections:  make([]Connection, 0, 8),
+		state:              sync2.NewAtomicInt32(int32(txnStateLive)),
 	}
 	txnd := NewTxnDetail(txn)
 	txn.txnd = txnd
@@ -148,6 +151,11 @@ func (txn *Txn) SetTimeout(timeout int) {
 // SetMaxResult used to set the txn max result.
 func (txn *Txn) SetMaxResult(max int) {
 	txn.maxResult = max
+}
+
+// SetMultiStat used to set the isMultieStat true or not, default false
+func (txn *Txn) SetIsSingleStatSelect(isSingleStatSelect bool) {
+	txn.isSingleStatSelect = isSingleStatSelect
 }
 
 // TxID returns txn id.
@@ -329,7 +337,13 @@ func (txn *Txn) Begin() error {
 
 	txn.req = xcontext.NewRequestContext()
 	txn.req.Mode = xcontext.ReqScatter
-	return txn.xaStart()
+
+	// Optimize read for single statement transaction sql type: select
+	if txn.isSingleStatSelect {
+		return nil
+	} else {
+		return txn.xaStart()
+	}
 }
 
 // Commit does:
@@ -339,10 +353,11 @@ func (txn *Txn) Begin() error {
 func (txn *Txn) Commit() error {
 	txn.state.Set(int32(txnStateCommitting))
 
-	// Here, we only handle the write-txn.
-	// Commit nothing for read-txn.
-	switch txn.req.TxnMode {
-	case xcontext.TxnWrite:
+	// Here, we only handle the single statement(write-txn) or multi-transactions
+	// statement and optimize for single statement(read-txn, commit nothing).
+	if txn.isSingleStatSelect == true {
+		return nil
+	} else {
 		// 1. XA END.
 		if err := txn.xaEnd(); err != nil {
 			return err
@@ -355,8 +370,8 @@ func (txn *Txn) Commit() error {
 
 		// 3. XA COMMIT
 		txn.xaCommit()
+		return nil
 	}
-	return nil
 }
 
 // Rollback used to rollback a XA transaction.
@@ -365,13 +380,13 @@ func (txn *Txn) Rollback() error {
 	log := txn.log
 	txn.state.Set(int32(txnStateRollbacking))
 
-	// Here, we only handle the write-txn.
-	// Rollback nothing for read-txn.
-	switch txn.req.TxnMode {
-	case xcontext.TxnWrite:
-		log.Warning("txn.rollback.xid[%v]", txn.xid)
+	switch txnXAState(txn.xaState.Get()) {
+	// multi stat txn Begin finished(may be success or fail), rollback.
+	case txnXAStateStartFinished:
+		log.Warning("txn.rollback.xid[%v].state[%v]", txn.xid, txnXAStateStartFinished)
 		// 1. XA END.
 		if err := txn.xaEnd(); err != nil {
+			log.Error("txn.rollback.xa_end.error:[%v]", err)
 			return err
 		}
 
@@ -382,6 +397,24 @@ func (txn *Txn) Rollback() error {
 
 		// 3. XA ROLLBACK
 		txn.xaRollback()
+	// XA commit Prepare error, rollback.
+	case txnXAStatePrepareFinished:
+		log.Warning("txn.rollback.xid[%v].state[%v]", txn.xid, txnXAStatePrepareFinished)
+		// 1. XA END.
+		if err := txn.xaEnd(); err != nil {
+			log.Error("txn.rollback.xa_end.error:[%v]", err)
+			return err
+		}
+
+		// 2. XA PREPARE.
+		if err := txn.xaPrepare(); err != nil {
+			return err
+		}
+
+		// 3. XA ROLLBACK
+		txn.xaRollback()
+	default:
+		log.Error("txn.xa.state.error:[%v]", txnXAState(txn.xaState.Get()))
 	}
 	return nil
 }

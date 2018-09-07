@@ -10,6 +10,7 @@ package proxy
 
 import (
 	"errors"
+	"fmt"
 
 	"backend"
 	"executor"
@@ -22,8 +23,42 @@ import (
 	"github.com/xelabs/go-mysqlstack/sqlparser/depends/sqltypes"
 )
 
-// ExecuteTwoPC allows multi-shards transactions with 2pc commit.
-func (spanner *Spanner) ExecuteTwoPC(session *driver.Session, database string, query string, node sqlparser.Statement) (*sqltypes.Result, error) {
+// ExecuteMultiStatWithTwoPC used to execute multi-transactions with 2pc commit.
+func (spanner *Spanner) ExecuteMultiStatWithTwoPC(session *driver.Session, database string, query string, node sqlparser.Statement) (*sqltypes.Result, error) {
+	log := spanner.log
+	router := spanner.router
+	sessions := spanner.sessions
+
+	var err error
+	var txn backend.Transaction
+
+	mysession := sessions.getTxnSession(session)
+	txn = mysession.transaction
+	// binding.
+	sessions.MultiStateTxnBinding(session, nil, node, query)
+	defer sessions.MultiStateTxnUnBinding(session, false)
+
+	// Transaction execute.
+	plans, err := optimizer.NewSimpleOptimizer(log, database, query, node, router).BuildPlanTree()
+	if err != nil {
+		return nil, err
+	}
+
+	executors := executor.NewTree(log, plans, txn)
+	qr, err := executors.Execute()
+	if err != nil {
+		if x := txn.Rollback(); x != nil {
+			defer sessions.MultiStateTxnUnBinding(session, true)
+			txn.Finish() // if some error happens, execute txn finish
+			log.Error("spanner.execute.2pc.error.to.rollback.still.error:[%v]", x)
+		}
+		return nil, err
+	}
+	return qr, nil
+}
+
+// SingleStatExecuteTwoPC used to execute single statement transaction with 2pc commit.
+func (spanner *Spanner) ExecuteSingleStatWithTwoPC(session *driver.Session, database string, query string, node sqlparser.Statement) (*sqltypes.Result, error) {
 	log := spanner.log
 	conf := spanner.conf
 	router := spanner.router
@@ -32,33 +67,30 @@ func (spanner *Spanner) ExecuteTwoPC(session *driver.Session, database string, q
 
 	var err error
 	var txn backend.Transaction
-	singleStatement := false
 
-	// transaction.
-	mysession := sessions.getTxnSession(session)
-	txn = mysession.transaction
-	if txn == nil {
-		txn, err = scatter.CreateTransaction()
-		if err != nil {
-			log.Error("spanner.txn.create.error:[%v]", err)
-			return nil, err
-		}
-		defer txn.Finish()
+	txn, err = scatter.CreateTransaction()
+	if err != nil {
+		log.Error("spanner.txn.create.error:[%v]", err)
+		return nil, err
+	}
+	defer txn.Finish()
 
-		// txn limits.
-		txn.SetTimeout(conf.Proxy.QueryTimeout)
-		txn.SetMaxResult(conf.Proxy.MaxResultSize)
+	// txn limits.
+	txn.SetTimeout(conf.Proxy.QueryTimeout)
+	txn.SetMaxResult(conf.Proxy.MaxResultSize)
+	switch node.(type) {
+	case *sqlparser.Select:
+		txn.SetIsSingleStatSelect(true)
+	}
 
-		// binding.
-		sessions.TxnBinding(session, txn, node, query)
-		defer sessions.TxnUnBinding(session)
+	// binding.
+	sessions.TxnBinding(session, txn, node, query)
+	defer sessions.TxnUnBinding(session)
 
-		// Transaction begin.
-		if err := txn.Begin(); err != nil {
-			log.Error("spanner.execute.2pc.txn.begin.error:[%v]", err)
-			return nil, err
-		}
-		singleStatement = true
+	// Transaction begin.
+	if err := txn.Begin(); err != nil {
+		log.Error("spanner.execute.2pc.txn.begin.error:[%v]", err)
+		return nil, err
 	}
 
 	// Transaction execute.
@@ -76,11 +108,9 @@ func (spanner *Spanner) ExecuteTwoPC(session *driver.Session, database string, q
 		return nil, err
 	}
 
-	if singleStatement {
-		if err := txn.Commit(); err != nil {
-			log.Error("spanner.execute.2pc.txn.commit.error:[%v]", err)
-			return nil, err
-		}
+	if err := txn.Commit(); err != nil {
+		log.Error("spanner.execute.2pc.txn.commit.error:[%v]", err)
+		return nil, err
 	}
 	return qr, nil
 }
@@ -177,7 +207,15 @@ func (spanner *Spanner) Execute(session *driver.Session, database string, query 
 	// Execute.
 	if spanner.isTwoPC() {
 		if spanner.IsDML(node) {
-			return spanner.ExecuteTwoPC(session, database, query, node)
+			// if single statement transaction or not.
+			var txn backend.Transaction
+			sessions := spanner.sessions
+			mysession := sessions.getTxnSession(session)
+			txn = mysession.transaction
+			if txn == nil { // single statement transaction.
+				return spanner.ExecuteSingleStatWithTwoPC(session, database, query, node)
+			}
+			return spanner.ExecuteMultiStatWithTwoPC(session, database, query, node)
 		}
 		return spanner.ExecuteNormal(session, database, query, node)
 	}
@@ -235,4 +273,127 @@ func (spanner *Spanner) ExecuteOnBackup(database string, query string) (*sqltype
 	}
 	defer txn.Finish()
 	return txn.ExecuteRaw(database, query)
+}
+
+// ExecuteMultiStatBegin used to execute "start transaction" or "begin".
+func (spanner *Spanner) ExecuteMultiStatBegin(session *driver.Session, query string, node sqlparser.Statement) (*sqltypes.Result, error) {
+	log := spanner.log
+	conf := spanner.conf
+	sessions := spanner.sessions
+	scatter := spanner.scatter
+	var txn backend.Transaction
+	var err error
+
+	if !spanner.isTwoPC() {
+		log.Error("spanner.execute.2pc.disable")
+		qr := &sqltypes.Result{Warnings: 1}
+		return qr, fmt.Errorf("spanner.query.execute.multi.transaction.error[twopc-disable]")
+	}
+
+	// transaction.
+	currentSession := sessions.getTxnSession(session)
+	txn = currentSession.transaction
+
+	// If not nil, make sure to commit previous transaction first and then begin another
+	// the previous transaction begin without commit or rollback
+	// e.g.: begin; sql1; sql2; sql3; begin; sql4; sql5; commit;
+	if txn != nil {
+		if err := txn.Commit(); err != nil {
+			log.Error("spanner.execute.2pc.txn.commit.error:[%v]", err)
+			if x := txn.Rollback(); x != nil {
+				log.Error("spanner.execute.2pc.error.to.rollback.still.error:[%v]", x)
+			}
+			txn.Finish()
+			sessions.TxnUnBinding(session)
+			return nil, err
+		}
+		txn.Finish()
+		sessions.TxnUnBinding(session)
+	}
+
+	// create txn
+	txn, err = scatter.CreateTransaction()
+	if err != nil {
+		log.Error("spanner.txn.create.error:[%v]", err)
+		return nil, err
+	}
+	// txn limits.
+	txn.SetTimeout(conf.Proxy.QueryTimeout)
+	txn.SetMaxResult(conf.Proxy.MaxResultSize)
+
+	// binding.
+	sessions.MultiStateTxnBinding(session, txn, node, query)
+	defer sessions.MultiStateTxnUnBinding(session, false)
+	if err := txn.Begin(); err != nil {
+		txn.Finish()
+		sessions.TxnUnBinding(session)
+		log.Error("spanner.execute.2pc.txn.begin.error:[%v]", err)
+		return nil, err
+	}
+	qr := &sqltypes.Result{Warnings: 1}
+	return qr, nil
+}
+
+// ExecuteMultiStatRollback used to execute multi-statement transaction sql:"rollback"
+func (spanner *Spanner) ExecuteMultiStatRollback(session *driver.Session, query string, node sqlparser.Statement) (*sqltypes.Result, error) {
+	log := spanner.log
+	sessions := spanner.sessions
+	var txn backend.Transaction
+
+	if !spanner.isTwoPC() {
+		log.Error("spanner.execute.2pc.disable")
+		qr := &sqltypes.Result{Warnings: 1}
+		return qr, fmt.Errorf("spanner.query.execute.multi.transaction.error[twopc-disable]")
+	}
+
+	// transaction.
+	currentSession := sessions.getTxnSession(session)
+	txn = currentSession.transaction
+
+	// Nothing to do if "rollback" was send without begin a multi-transaction.
+	if txn == nil {
+		qr := &sqltypes.Result{Warnings: 1}
+		return qr, nil
+	}
+
+	defer txn.Finish()
+	defer sessions.MultiStateTxnUnBinding(session, true)
+	if err := txn.Rollback(); err != nil {
+		log.Error("spanner.execute.2pc.error.to.rollback.still.error:[%v]", err)
+		return nil, err
+	}
+	qr := &sqltypes.Result{Warnings: 1}
+	return qr, nil
+}
+
+// ExecuteMultiStatCommit used to execute multi-statement transaction: "commit"
+func (spanner *Spanner) ExecuteMultiStatCommit(session *driver.Session, query string, node sqlparser.Statement) (*sqltypes.Result, error) {
+	log := spanner.log
+	sessions := spanner.sessions
+	var txn backend.Transaction
+
+	if !spanner.isTwoPC() {
+		log.Error("spanner.execute.2pc.disable")
+		qr := &sqltypes.Result{Warnings: 1}
+		return qr, fmt.Errorf("spanner.query.execute.multi.transaction.error[twopc-disable]")
+	}
+
+	// transaction.
+	currentSession := sessions.getTxnSession(session)
+	txn = currentSession.transaction
+
+	// Nothing to do if "commit" was send without begin a multi-transaction.
+	if txn == nil {
+		qr := &sqltypes.Result{Warnings: 1}
+		return qr, nil
+	}
+
+	defer txn.Finish()
+	defer sessions.MultiStateTxnUnBinding(session, true)
+	if err := txn.Commit(); err != nil {
+		log.Error("spanner.execute.2pc.txn.commit.error:[%v]", err)
+		return nil, err
+	}
+	qr := &sqltypes.Result{Warnings: 1}
+	return qr, nil
 }

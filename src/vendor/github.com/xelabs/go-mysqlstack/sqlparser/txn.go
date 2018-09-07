@@ -7,8 +7,11 @@ package sqlparser
 import ()
 
 const (
-	// StartTxnStr represents the txn start.
+	// StartTxnStr represents the txn start transaction or begin.
 	StartTxnStr = "start transaction"
+
+	// RollbackTxnStr represents the txn start.
+	RollbackTxnStr = "rollback"
 
 	// CommitTxnStr represents the txn commit.
 	CommitTxnStr = "commit"
@@ -26,6 +29,8 @@ func (node *Transaction) Format(buf *TrackedBuffer) {
 	switch node.Action {
 	case StartTxnStr:
 		buf.WriteString(StartTxnStr)
+	case RollbackTxnStr:
+		buf.WriteString(RollbackTxnStr)
 	case CommitTxnStr:
 		buf.WriteString(CommitTxnStr)
 	}

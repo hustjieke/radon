@@ -271,10 +271,27 @@ func (spanner *Spanner) ComQuery(session *driver.Session, query string, callback
 		spanner.auditLog(session, R, xbase.EXPLAIN, query, qr)
 		return returnQuery(qr, callback, err)
 	case *sqlparser.Transaction:
-		// Support for myloader.
+		// Support for myloader and multi-statement transaction
 		log.Warning("proxy.query.transaction.query:%s", query)
+		snode := node.(*sqlparser.Transaction)
+		switch snode.Action {
+		case "start transaction":
+			if qr, err = spanner.handleBegin(session, query, node); err != nil {
+				log.Error("proxy.query.transaction[%s].error:%s", query, err)
+				return err
+			}
+		case "rollback":
+			if qr, err = spanner.handleRollback(session, query, node); err != nil {
+				log.Error("proxy.query.transaction[%s].error:%s", query, err)
+				return err
+			}
+		case "commit":
+			if qr, err = spanner.handleCommit(session, query, node); err != nil {
+				log.Error("proxy.query.transaction[%s].error:%s", query, err)
+				return err
+			}
+		}
 		spanner.auditLog(session, R, xbase.TRANSACTION, query, qr)
-		qr = &sqltypes.Result{Warnings: 1}
 		return returnQuery(qr, callback, nil)
 	case *sqlparser.Set:
 		// Support for JDBC/myloader.

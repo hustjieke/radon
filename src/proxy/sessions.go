@@ -177,6 +177,53 @@ func (ss *Sessions) TxnUnBinding(s *driver.Session) {
 	session.timestamp = time.Now().Unix()
 }
 
+// MultiStateTxnBinding used to bind multi-transaction info to the session.
+func (ss *Sessions) MultiStateTxnBinding(s *driver.Session, txn backend.Transaction, node sqlparser.Statement, query string) {
+	ss.mu.RLock()
+	session, ok := ss.sessions[s.ID()]
+	if !ok {
+		ss.mu.RUnlock()
+		return
+	}
+	ss.mu.RUnlock()
+
+	session.mu.Lock()
+	defer session.mu.Unlock()
+	q := query
+	if len(query) > 128 {
+		q = query[:128]
+	}
+	session.query = q
+	session.node = node
+	// Args of txn should not be nil only when "begin" or "start transaction" is executed.
+	// The value of session.transaction only needs to be set just once during multi-transaction.
+	if txn != nil {
+		session.transaction = txn
+	}
+	session.timestamp = time.Now().Unix()
+}
+
+// MultiStateTxnUnBinding used to keep transaction and node to nil.
+func (ss *Sessions) MultiStateTxnUnBinding(s *driver.Session, endFlag bool) {
+	ss.mu.RLock()
+	session, ok := ss.sessions[s.ID()]
+	if !ok {
+		ss.mu.RUnlock()
+		return
+	}
+	ss.mu.RUnlock()
+
+	session.mu.Lock()
+	defer session.mu.Unlock()
+	session.node = nil
+	session.query = ""
+	// If multi-transaction is end or some errors happen, set transaction to be nil
+	if endFlag == true {
+		session.transaction = nil
+	}
+	session.timestamp = time.Now().Unix()
+}
+
 // Close used to close all sessions.
 func (ss *Sessions) Close() {
 	i := 0

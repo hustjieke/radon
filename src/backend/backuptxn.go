@@ -71,6 +71,11 @@ func (txn *BackupTxn) SetMaxResult(max int) {
 	txn.maxResult = max
 }
 
+// SetIsSingleStatSelect used to set the isSingleStatSelect true or not.
+func (txn *BackupTxn) SetIsSingleStatSelect(isSingleStatSelect bool) {
+	// nothing to do
+}
+
 // TxID returns txn id.
 func (txn *BackupTxn) TxID() uint64 {
 	return txn.id
