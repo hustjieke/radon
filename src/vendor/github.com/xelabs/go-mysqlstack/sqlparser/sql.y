@@ -274,7 +274,7 @@ func forceEOF(yylex interface{}) {
 %type <str> show_statement_type
 %type <columnType> column_type
 %type <columnType> int_type decimal_type numeric_type time_type char_type
-%type <optVal> length_opt column_default_opt on_update_opt column_comment_opt table_comment_opt engine_option charset_option tabletype_option
+%type <optVal> length_opt column_default_opt on_update_opt column_comment_opt table_comment_opt engine_option charset_option tabletype_option auto_opt
 %type <str> charset_opt collate_opt
 %type <optVal> id_or_string
 %type <str> collate_name_or_default opt_charset opt_equal opt_default charset_name_or_default
@@ -690,6 +690,19 @@ table_comment_opt
         Val: $1,
     }
   }
+| auto_opt  
+  {
+    $$ = &TableOption{
+        Type: TableOptionAutoInc,
+        Val: $1,
+    }
+  }
+
+auto_opt:
+AUTO_INCREMENT opt_equal INTEGRAL
+{
+    //$$ = ""
+}
 
 id_or_string:
   ID
