@@ -891,7 +891,7 @@ const (
 	// Comment enum.
 	ColumnOptionComment
 
-	// OnUpdate enum
+	// OnUpdate enum.
 	ColumnOptionOnUpdate
 
 	// PrimarykeyOption enum.
@@ -899,6 +899,9 @@ const (
 
 	// UniquekeyOption enum.
 	ColumnOptionKeyUniqueOpt
+
+	// KeyDuplicate enum.
+	ColumnOptionKeyDuplicate
 )
 
 type ColumnOption struct {
@@ -906,6 +909,7 @@ type ColumnOption struct {
 	// Generic field options.
 	NotNull       BoolVal
 	Autoincrement BoolVal
+	KeyDuplicate  BoolVal
 	Default       *SQLVal
 	Comment       *SQLVal
 	OnUpdate      *SQLVal
@@ -935,6 +939,7 @@ func (co *ColumnOptionListOpt) GetColumnOption(opt ColumnOpt) *ColumnOption {
 		typ:           ColumnOptionNone,
 		NotNull:       false,
 		Autoincrement: false,
+		KeyDuplicate:  false,
 		Default:       nil,
 		Comment:       nil,
 		OnUpdate:      nil,
@@ -952,6 +957,7 @@ type ColumnType struct {
 	// Generic field options.
 	NotNull       BoolVal
 	Autoincrement BoolVal
+	KeyDuplicate  BoolVal
 	Default       *SQLVal
 	OnUpdate      *SQLVal
 	Comment       *SQLVal

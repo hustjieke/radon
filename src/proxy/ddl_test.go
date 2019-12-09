@@ -902,6 +902,9 @@ func TestProxyDDLConstraint(t *testing.T) {
 		"create table t21(a int unique, b int, unique key `name` (a))engine=tokudb default charset=utf8  PARTITION  BY hash(a)  ",
 		"create table t22(`a` bigint not null unique default current_timestamp auto_increment unique key key primary key comment 'RadonDB' auto_increment primary key)engine=tokudb default charset=utf8  PARTITION  BY hash(a)  ",
 		"create table t23(a int unique, b timestamp ON UPDATE CURRENT_TIMESTAMP NOT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT 'currenttimestamp' DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'currenttimestamp' ON UPDATE CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)engine=tokudb default charset=utf8  PARTITION  BY hash(a)  ",
+		"create table t24(a int unique duplicate, b timestamp ON UPDATE CURRENT_TIMESTAMP NOT NULL) partition by hash(b)",
+		"create table t25(a bigint key duplicate auto_increment, b timestamp ON UPDATE CURRENT_TIMESTAMP NOT NULL) partition by hash(b)",
+		"create table t26(a bigint key duplicate auto_increment, b timestamp ON UPDATE CURRENT_TIMESTAMP NOT NULL) partition by hash(a)",
 	}
 
 	for _, query := range querys {

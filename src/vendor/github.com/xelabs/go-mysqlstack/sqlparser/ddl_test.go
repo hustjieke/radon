@@ -42,6 +42,19 @@ func TestDDL1(t *testing.T) {
 
 		{
 			input: "create table t (\n" +
+				"	`id` bigint auto_increment,\n" +
+				"	`name` varchar(10)\n" +
+				"   ,key(id)\n" +
+				") partition by hash(id)",
+			output: "create table t (\n" +
+				"	`id` bigint auto_increment,\n" +
+				"	`name` varchar(10),\n" +
+				"   key(id)\n" +
+				")",
+		},
+
+		{
+			input: "create table t (\n" +
 				"	`id` int primary key,\n" +
 				"	`name` varchar(10)\n" +
 				") partition by hash(id)",
@@ -292,6 +305,27 @@ func TestDDL1(t *testing.T) {
 			output: "create table test.t (\n" +
 				"	`id` int primary key,\n" +
 				"	`name` varchar(10)\n" +
+				")",
+		},
+		// for bingxi
+		{
+			input: "create table t (\n" +
+				"	`id` int not null duplicate,\n" +
+				"	`col2` int not null duplicate unique,\n" +
+				"	`col3` int not null unique key duplicate,\n" +
+				"	`col4` int not null unique key key duplicate,\n" +
+				"	`col5` int not null unique duplicate key key comment 'RadonDB',\n" +
+				"	`col6` int not null unique key duplicate key comment 'RadonDB' auto_increment,\n" +
+				"	`col7` int not null unique key key duplicate comment 'RadonDB' auto_increment primary key\n" +
+				") partition by hash(id)",
+			output: "create table t (\n" +
+				"	`id` int not null,\n" +
+				"	`col2` int not null unique key,\n" +
+				"	`col3` int not null unique key,\n" +
+				"	`col4` int not null primary key unique key,\n" +
+				"	`col5` int not null comment 'RadonDB' primary key unique key,\n" +
+				"	`col6` int not null auto_increment comment 'RadonDB' primary key unique key,\n" +
+				"	`col7` int not null auto_increment comment 'RadonDB' primary key unique key\n" +
 				")",
 		},
 		// for issue #190

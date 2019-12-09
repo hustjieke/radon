@@ -280,7 +280,7 @@ func forceEOF(yylex interface{}) {
 %type <str> collate_name_or_default opt_charset opt_equal opt_default charset_name_or_default
 %type <boolVal> unsigned_opt zero_fill_opt
 %type <LengthScaleOption> float_length_opt decimal_length_opt
-%type <boolVal> null_opt auto_increment_opt
+%type <boolVal> null_opt auto_increment_opt key_duplicate_opt
 %type <colPrimaryKeyOpt> column_primary_key_opt
 %type <colUniqueKeyOpt>  column_unique_key_opt
 %type <strs> enum_values
@@ -769,6 +769,7 @@ column_definition:
     $2.OnUpdate= $3.GetColumnOption(ColumnOptionOnUpdate).OnUpdate
     $2.PrimaryKeyOpt = $3.GetColumnOption(ColumnOptionKeyPrimaryOpt).PrimaryKeyOpt
     $2.UniqueKeyOpt = $3.GetColumnOption(ColumnOptionKeyUniqueOpt).UniqueKeyOpt
+    $2.KeyDuplicate = $3.GetColumnOption(ColumnOptionKeyDuplicate).KeyDuplicate
     $$ = &ColumnDefinition{Name: $1, Type: $2}
   }
 
@@ -859,6 +860,13 @@ null_opt
     $$ = &ColumnOption{
         typ:           ColumnOptionOnUpdate,
         OnUpdate:      $1,
+    }
+  }
+| key_duplicate_opt
+  {
+    $$ = &ColumnOption{
+        typ:           ColumnOptionKeyDuplicate,
+        KeyDuplicate:      $1,
     }
   }
 
@@ -1124,6 +1132,12 @@ ON UPDATE CURRENT_TIMESTAMP
 
 auto_increment_opt:
 AUTO_INCREMENT
+  {
+    $$ = BoolVal(true)
+  }
+
+key_duplicate_opt:
+DUPLICATE
   {
     $$ = BoolVal(true)
   }

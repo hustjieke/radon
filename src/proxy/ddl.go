@@ -44,6 +44,7 @@ func checkEngine(ddl *sqlparser.DDL) {
 	}
 }
 
+// TODO() This function should be refactor, it hard to read now.
 func tryGetShardKey(ddl *sqlparser.DDL) (string, error) {
 	shardKey := ddl.PartitionName
 	table := ddl.Table.Name.String()
@@ -61,8 +62,8 @@ func tryGetShardKey(ddl *sqlparser.DDL) (string, error) {
 			if colName == shardKey {
 				shardKeyOK = true
 			} else {
-				if col.Type.PrimaryKeyOpt == sqlparser.ColKeyPrimary ||
-					col.Type.UniqueKeyOpt == sqlparser.ColKeyUniqueKey {
+				if (col.Type.PrimaryKeyOpt == sqlparser.ColKeyPrimary ||
+					col.Type.UniqueKeyOpt == sqlparser.ColKeyUniqueKey) && !col.Type.KeyDuplicate {
 					constraintCheckOK = false
 				}
 			}
@@ -77,17 +78,17 @@ func tryGetShardKey(ddl *sqlparser.DDL) (string, error) {
 
 		// constraint check in index definition
 		for _, index := range ddl.TableSpec.Indexes {
-			constraintCheckOK = false
-			info := index.Info
-			if info.Unique || info.Primary {
+			constraintCheckOKInIndex := false
+			idxInfo := index.Info
+			if idxInfo.Unique || idxInfo.Primary {
 				for _, colIdx := range index.Columns {
 					colName := colIdx.Column.String()
 					if colName == shardKey {
-						constraintCheckOK = true
+						constraintCheckOKInIndex = true
 						break
 					}
 				}
-				if !constraintCheckOK {
+				if !constraintCheckOKInIndex {
 					return "", fmt.Errorf("The unique/primary constraint should be only defined on the sharding key column[%s]", shardKey)
 				}
 			}
@@ -96,8 +97,8 @@ func tryGetShardKey(ddl *sqlparser.DDL) (string, error) {
 	} else {
 		for _, col := range ddl.TableSpec.Columns {
 			colName := col.Name.String()
-			if col.Type.PrimaryKeyOpt == sqlparser.ColKeyPrimary ||
-				col.Type.UniqueKeyOpt == sqlparser.ColKeyUniqueKey {
+			if (col.Type.PrimaryKeyOpt == sqlparser.ColKeyPrimary ||
+				col.Type.UniqueKeyOpt == sqlparser.ColKeyUniqueKey) && !col.Type.KeyDuplicate {
 				return colName, nil
 			}
 		}
@@ -105,6 +106,7 @@ func tryGetShardKey(ddl *sqlparser.DDL) (string, error) {
 		for _, index := range ddl.TableSpec.Indexes {
 			info := index.Info
 			if info.Unique || info.Primary {
+				// TODO() why len == 1 ?? primary key(a ,b) not correct?
 				if len(index.Columns) == 1 {
 					return index.Columns[0].Column.String(), nil
 				}
