@@ -15,6 +15,7 @@ import (
 )
 
 // PlanNode interface.
+// 函数名大小写(andy),外部调用大写,内部调用小写
 type PlanNode interface {
 	addNoTableFilter(exprs []sqlparser.Expr)
 	buildQuery(root PlanNode)

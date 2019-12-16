@@ -32,15 +32,26 @@ type exprInfo struct {
 // eg: 't1.a=t2.a and t1.b=2'.
 // t1.a=t2.a paser in joins.
 // t1.b=2 paser in wheres, t1.b col, 2 val.
+// t1.id = t2.id 或者 t1.id > 1 类似,id不管是不是shardkey
+// t1Expr 左边返回值, t2Expr 右边返回值
+// 这个函数还有一些语义不规范的check
 func parseWhereOrJoinExprs(exprs sqlparser.Expr, tbInfos map[string]*tableInfo) ([]exprInfo, []exprInfo, error) {
+	// 根据and作为分隔符拆分
+	// TODO(gry)splitAndExpression-->splitExprByAnd
+	// filters --> filtersExpr
 	filters := splitAndExpression(nil, exprs)
 	var joins, wheres []exprInfo
 
 	for _, filter := range filters {
+		// TODO(gry) col = 1
 		var cols []*sqlparser.ColName
 		var vals []*sqlparser.SQLVal
+
 		filter = skipParenthesis(filter)
+		// convertOrToIn函数里面有判断是不是or expr,不是为什么要传进去呢？为什么不放在外面if or, 然后调用函数
+		// b=1 or b=2 转换成in(1,2)
 		filter = convertOrToIn(filter)
+		// 参数涉及到的表
 		referTables := make([]string, 0, 4)
 		err := sqlparser.Walk(func(node sqlparser.SQLNode) (kontinue bool, err error) {
 			switch node := node.(type) {
@@ -49,11 +60,13 @@ func parseWhereOrJoinExprs(exprs sqlparser.Expr, tbInfos map[string]*tableInfo) 
 				tableName := node.Qualifier.Name.String()
 				if tableName == "" {
 					if len(tbInfos) == 1 {
+						// 一个表
 						tableName, _ = getOneTableInfo(tbInfos)
 					} else {
 						return false, errors.Errorf("unsupported: unknown.column.'%s'.in.clause", node.Name.String())
 					}
 				} else {
+					// 检测在不在里面,这里tbInfos
 					if _, ok := tbInfos[tableName]; !ok {
 						return false, errors.Errorf("unsupported: unknown.column.'%s.%s'.in.clause", tableName, node.Name.String())
 					}
@@ -176,6 +189,7 @@ func nameMatch(node sqlparser.Expr, table, shardkey string) bool {
 // and appends them to filters, which can be shuffled and recombined
 // as needed.
 func splitAndExpression(filters []sqlparser.Expr, node sqlparser.Expr) []sqlparser.Expr {
+	// node 不是filters
 	if node == nil {
 		return filters
 	}
@@ -183,6 +197,7 @@ func splitAndExpression(filters []sqlparser.Expr, node sqlparser.Expr) []sqlpars
 	case *sqlparser.AndExpr:
 		filters = splitAndExpression(filters, node.Left)
 		return splitAndExpression(filters, node.Right)
+		// 括号里面and递归, ParenExpr里面也有or，所以这里splitAndExpression函数命名和里面的switch分支注释至少要清晰
 	case *sqlparser.ParenExpr:
 		if node, ok := node.Expr.(*sqlparser.AndExpr); ok {
 			return splitAndExpression(filters, node)
@@ -193,6 +208,7 @@ func splitAndExpression(filters []sqlparser.Expr, node sqlparser.Expr) []sqlpars
 
 // skipParenthesis skips the parenthesis (if any) of an expression and
 // returns the innermost unparenthesized expression.
+// 括号去掉
 func skipParenthesis(node sqlparser.Expr) sqlparser.Expr {
 	if node, ok := node.(*sqlparser.ParenExpr); ok {
 		return skipParenthesis(node.Expr)
@@ -202,6 +218,9 @@ func skipParenthesis(node sqlparser.Expr) sqlparser.Expr {
 
 // splitOrExpression breaks up the OrExpr into OR-separated conditions.
 // Split the Equal conditions into inMap, return the other conditions.
+// 优化点,一个函数干一个事,优化操作为什么要带进来呢,可以注释说明,或者切分逻辑
+// 消除公共子表达式
+// (A and B) or (A and C)-->A and ( B or C)
 func splitOrExpression(node sqlparser.Expr, inMap map[*sqlparser.ColName][]sqlparser.Expr) []sqlparser.Expr {
 	var subExprs []sqlparser.Expr
 	switch expr := node.(type) {
@@ -210,9 +229,12 @@ func splitOrExpression(node sqlparser.Expr, inMap map[*sqlparser.ColName][]sqlpa
 		subExprs = append(subExprs, splitOrExpression(expr.Right, inMap)...)
 	case *sqlparser.ComparisonExpr:
 		canSplit := false
+		// 等值表达式提取,到后面只用来做路由计算
+		// 1=1 ?转换不了,保持原来的状态
 		if expr.Operator == sqlparser.EqualStr {
 			if lc, ok := expr.Left.(*sqlparser.ColName); ok {
 				if val, ok := expr.Right.(*sqlparser.SQLVal); ok {
+					// a=b
 					col := checkColInMap(inMap, lc)
 					inMap[col] = append(inMap[col], val)
 					canSplit = true
@@ -228,6 +250,7 @@ func splitOrExpression(node sqlparser.Expr, inMap map[*sqlparser.ColName][]sqlpa
 			}
 		}
 
+		// 优化完去掉
 		if !canSplit {
 			subExprs = append(subExprs, expr)
 		}
@@ -240,7 +263,10 @@ func splitOrExpression(node sqlparser.Expr, inMap map[*sqlparser.ColName][]sqlpa
 }
 
 // checkColInMap used to check if the colname is in the map.
+// 函数名称:checkColInMap改成类似checkIfNotContainCol?
 func checkColInMap(inMap map[*sqlparser.ColName][]sqlparser.Expr, col *sqlparser.ColName) *sqlparser.ColName {
+	// 一个if inMap(col) {...} 不就完了嘛?返回值 改为true或者fals,外面调用逻辑改为 if checkIfNotContainCol() { ... }
+	// 或者 干脆根本不需要这个check函数,代码直接挪出去判断即可
 	for k := range inMap {
 		if col.Equal(k) {
 			return k
@@ -250,6 +276,7 @@ func checkColInMap(inMap map[*sqlparser.ColName][]sqlparser.Expr, col *sqlparser
 }
 
 // rebuildOr used to rebuild the OrExpr.
+// node改为newExpr, expr改为oldExpr
 func rebuildOr(node, expr sqlparser.Expr) sqlparser.Expr {
 	if node == nil {
 		return expr
@@ -267,10 +294,17 @@ func convertOrToIn(node sqlparser.Expr) sqlparser.Expr {
 		return node
 	}
 
+	// inMap什么？变量名干嘛的不清晰
+	// inMap: in (...)
 	inMap := make(map[*sqlparser.ColName][]sqlparser.Expr)
+	// result改为newOrExprs
 	var result sqlparser.Expr
+	// 按顺序,不应该是先or exprs解析出来，然后再convertOrToIn()嘛？现在是convertOrToIn()
+	// 里面再做就or exprs的分割,处理顺序可以调整下?
+	// subExprs 改为 exprListAfterSplit?
 	subExprs := splitOrExpression(expr, inMap)
 	for _, subExpr := range subExprs {
+		// result 里面的函数叫node, 变量
 		result = rebuildOr(result, subExpr)
 	}
 	for k, v := range inMap {
@@ -286,8 +320,12 @@ func convertOrToIn(node sqlparser.Expr) sqlparser.Expr {
 
 // convertToLeftJoin converts a right join into a left join.
 func convertToLeftJoin(joinExpr *sqlparser.JoinTableExpr) {
+	// TODO(gry) newExpr -- > leftExpr
 	newExpr := joinExpr.LeftExpr
 	// If LeftExpr is a join, we have to parenthesize it.
+	// 如果left左边是join expr,转换成right tble expr JOIN (expr)
+	// e.g.: a join b on .... right join c on ...
+	// --->: c left join (a join b on ...) on ...
 	if _, ok := newExpr.(*sqlparser.JoinTableExpr); ok {
 		newExpr = &sqlparser.ParenTableExpr{
 			Exprs: sqlparser.TableExprs{newExpr},

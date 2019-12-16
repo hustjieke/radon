@@ -17,6 +17,8 @@ import (
 	"github.com/xelabs/go-mysqlstack/xlog"
 )
 
+// TODO(gry) 注释改成一张表的数据源信息, mergeNode全部是叶子结点,
+// 这样子parent命名就不合适,容易引起歧义
 // tableInfo represents one table information.
 type tableInfo struct {
 	// database.
@@ -51,15 +53,22 @@ type tableInfo struct {
  *  The leaf node is MergeNode, branch node is JoinNode.
  */
 func scanTableExprs(log *xlog.Log, router *router.Router, database string, tableExprs sqlparser.TableExprs) (PlanNode, error) {
+	// 以逗号分组，比如 select col... from t1 join t2, t3 join t2 ...
+	// t1 join t2就是一个table表达式
+	// 一条sql过来不一定只有比如AliasedTableExpr这样一种table表达式
 	if len(tableExprs) == 1 {
 		return scanTableExpr(log, router, database, tableExprs[0])
 	}
 
 	var lpn, rpn PlanNode
 	var err error
+	// 比如t1Expr, t2Expr, t3Expr...
+	// 这里扫t1Expr
 	if lpn, err = scanTableExpr(log, router, database, tableExprs[0]); err != nil {
 		return nil, err
 	}
+	// 递归t2Expr, t3Expr...,注释的图讲的是一张表的场景，如何merge node, 另外逗号之间的tbl表达式
+	// 满足代数交换律,也可以从右往左的顺序.当然也可以循环处理,但是这样就不好实现了.
 	if rpn, err = scanTableExprs(log, router, database, tableExprs[1:]); err != nil {
 		return nil, err
 	}
@@ -79,16 +88,20 @@ func scanTableExpr(log *xlog.Log, router *router.Router, database string, tableE
 		p, err = scanTableExprs(log, router, database, tableExpr.Exprs)
 		// If finally p is a MergeNode, the pushed query need keep the parenthese.
 		setParenthese(p, true)
+		// TODO(gry) 这里是不是要放一个default?按照规范
 	}
 	return p, err
 }
 
 // scanAliasedTableExpr produces the table's tableInfo by the AliasedTableExpr, and build a MergeNode subtree.
+// TODO(gry): 这里tableInfo应该改为dataSrc,简单易懂
 func scanAliasedTableExpr(log *xlog.Log, r *router.Router, database string, tableExpr *sqlparser.AliasedTableExpr) (PlanNode, error) {
 	var err error
+	// merge node是叶子结点,可以直接下发,join node不是
 	mn := newMergeNode(log, r)
 	switch expr := tableExpr.Expr.(type) {
 	case sqlparser.TableName:
+		// 如果没有指定db,默认采用当前sesson的db,这里就是改写sql的开始了
 		if expr.Qualifier.IsEmpty() {
 			expr.Qualifier = sqlparser.NewTableIdent(database)
 		}
@@ -96,6 +109,7 @@ func scanAliasedTableExpr(log *xlog.Log, r *router.Router, database string, tabl
 			database: expr.Qualifier.String(),
 			Segments: make([]router.Segment, 0, 16),
 		}
+		// TODO(gry)这里重复了吧,上面不是刚改写过数据库??
 		if expr.Qualifier.IsEmpty() {
 			expr.Qualifier = sqlparser.NewTableIdent(database)
 		}
@@ -105,6 +119,8 @@ func scanAliasedTableExpr(log *xlog.Log, r *router.Router, database string, tabl
 		if err != nil {
 			return nil, err
 		}
+		// TODO(gry) 搞不明白为什么要重复填写信息呢??如果要shardKey或者shardType,
+		// 直接设计两个get...接口不就可以拿到了嘛
 		tn.shardKey = tn.tableConfig.ShardKey
 		tn.shardType = tn.tableConfig.ShardType
 		tn.tableExpr = tableExpr
@@ -117,6 +133,9 @@ func scanAliasedTableExpr(log *xlog.Log, r *router.Router, database string, tabl
 			mn.nonGlobalCnt = 1
 		case "HASH", "LIST":
 			// if a shard table hasn't alias, create one in order to push.
+			// 改成别名之后,这样子sql下发就可以用别名代替那些子表了.后面确认下到底好在哪,为什么不直接改
+			// 包括其他出现该表的地方可以一次性替换,减少工作量,相当于是一个优化
+			// 这个很不规范,这个改动,会直接影响到tn.tableExpr, 因为上面刚刚做了赋值
 			if tableExpr.As.String() == "" {
 				tableExpr.As = sqlparser.NewTableIdent(tn.tableName)
 			}
@@ -124,15 +143,25 @@ func scanAliasedTableExpr(log *xlog.Log, r *router.Router, database string, tabl
 		}
 
 		tn.parent = mn
+		// 这里,已经可以通过tn.tableExpr拿到别名,如果case是hash或者list
+		// 另外我给GLOBAL和SINGLE也可以做一个别名这样的操作,只不过别名就是其本身,无用功呗
+		// 所以,其实这里也可以设置成一个tn.getAlias()接口,如果需要tableInfo的别名的
+
 		tn.alias = tableExpr.As.String()
+		// 这段逻辑,可能考虑到GloBal或者SingLE那边没有赋值别名,那这里可不可以是一个优化点
 		if tn.alias != "" {
+			// 如果有别名,那就用别名替换,这里考虑到了不管是不是global/single/hash/list
 			mn.referTables[tn.alias] = tn
 		} else {
 			mn.referTables[tn.tableName] = tn
 		}
+		// 子查询还不支持
 	case *sqlparser.Subquery:
 		err = errors.New("unsupported: subquery.in.select")
 	}
+	// TODO(gry) 这里是不是也要一个default?
+
+	// 为后面的buildQuery改写sql做准备
 	mn.Sel = &sqlparser.Select{From: sqlparser.TableExprs([]sqlparser.TableExpr{tableExpr})}
 	return mn, err
 }
@@ -155,6 +184,7 @@ func scanJoinTableExpr(log *xlog.Log, router *router.Router, database string, jo
 	if err != nil {
 		return nil, err
 	}
+	// TODO(gry) lpn-->leftNodeExpr, rpn-->rightNodeExpr
 	return join(log, lpn, rpn, joinExpr, router)
 }
 
@@ -165,6 +195,7 @@ func join(log *xlog.Log, lpn, rpn PlanNode, joinExpr *sqlparser.JoinTableExpr, r
 	var joinOn, otherJoinOn []exprInfo
 	var err error
 
+	// 到208合并到一个函数,判断合并,从叶子节点mergeNode.getReferTables()合并,开始递归
 	referTables := make(map[string]*tableInfo)
 	for k, v := range lpn.getReferTables() {
 		referTables[k] = v
@@ -175,10 +206,15 @@ func join(log *xlog.Log, lpn, rpn PlanNode, joinExpr *sqlparser.JoinTableExpr, r
 		}
 		referTables[k] = v
 	}
+	// 这里只处理on
+	// 如果是... from t1, t2...,joinExpr = nil,结构就不一样
+	// join -- > 笛卡尔积, 投影---> select listExpr
 	if joinExpr != nil {
 		if joinExpr.On == nil {
 			joinExpr = nil
 		} else {
+			// 类似 或者a join b on ...
+			// Where / Join expr 过滤处理
 			if joinOn, otherJoinOn, err = parseWhereOrJoinExprs(joinExpr.On, referTables); err != nil {
 				return nil, err
 			}

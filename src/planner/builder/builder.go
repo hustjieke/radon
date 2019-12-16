@@ -40,6 +40,7 @@ func BuildNode(log *xlog.Log, router *router.Router, database string, node sqlpa
 }
 
 func processSelect(log *xlog.Log, router *router.Router, database string, node *sqlparser.Select) (PlanNode, error) {
+	// scanTableExprs 简单的语法planNode和优化一块做了，但是octosql分开的，这里要切分
 	root, err := scanTableExprs(log, router, database, node.From)
 	if err != nil {
 		return nil, err

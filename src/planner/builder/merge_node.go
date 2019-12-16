@@ -28,7 +28,9 @@ type MergeNode struct {
 	// router.
 	router *router.Router
 	// non-global tables' count in the MergeNode.
+	// 判断两个merge node能不能合并,但是这个变量吧,命名有问题.命名诡异,意思是没有全局表的个数是0,
 	nonGlobalCnt int
+	// 这个命名,singleBackend?或者specifyNode类似??
 	// if the query can be pushed down a backend, record.
 	backend string
 	// the shard index slice.
@@ -36,6 +38,7 @@ type MergeNode struct {
 	// length of the route.
 	routeLen int
 	// referred tables' tableInfo map.
+	// TODO(gry)
 	referTables map[string]*tableInfo
 	// whether has parenthese in FROM clause.
 	hasParen bool
