@@ -17,6 +17,7 @@ import (
 	"github.com/xelabs/go-mysqlstack/sqlparser"
 )
 
+// 中间生成,用于判断
 type exprInfo struct {
 	// filter expr.
 	expr sqlparser.Expr
@@ -35,10 +36,11 @@ type exprInfo struct {
 // t1.id = t2.id 或者 t1.id > 1 类似,id不管是不是shardkey
 // t1Expr 左边返回值, t2Expr 右边返回值
 // 这个函数还有一些语义不规范的check
+// exprs参数不用加s, 加了引起是list的感觉
 func parseWhereOrJoinExprs(exprs sqlparser.Expr, tbInfos map[string]*tableInfo) ([]exprInfo, []exprInfo, error) {
 	// 根据and作为分隔符拆分
-	// TODO(gry)splitAndExpression-->splitExprByAnd
-	// filters --> filtersExpr
+	// TODO(gry)splitAndExpression-->splitExprsByAnd
+	// filters --> exprList
 	filters := splitAndExpression(nil, exprs)
 	var joins, wheres []exprInfo
 
@@ -85,6 +87,9 @@ func parseWhereOrJoinExprs(exprs sqlparser.Expr, tbInfos map[string]*tableInfo) 
 			return nil, nil, err
 		}
 
+		// t1.id = t2.id划到jion on
+		// t1.id = 2 提取values in(1,2),所以前面有个转换or to in操作
+		// 把=值弄出来，condition改名?compareExpr?
 		condition, ok := filter.(*sqlparser.ComparisonExpr)
 		if ok {
 			lc, lok := condition.Left.(*sqlparser.ColName)
@@ -92,16 +97,27 @@ func parseWhereOrJoinExprs(exprs sqlparser.Expr, tbInfos map[string]*tableInfo) 
 			switch condition.Operator {
 			case sqlparser.EqualStr:
 				if lok && rok && lc.Qualifier != rc.Qualifier {
+					// TODO(gry) ??
 					tuple := exprInfo{condition, referTables, []*sqlparser.ColName{lc, rc}, nil}
 					joins = append(joins, tuple)
 					continue
 				}
+
+				// 走到这一步说明lok或者rok至少有一个为false
+				// 这段逻辑可否改成
+				// if lok && rok {
+				// 	if lc.Qualifier != rc.Qualifier {
+				// 	}
+				// } else if lok {
+				// } else if rok {
+				// }
 
 				if lok {
 					if sqlVal, ok := condition.Right.(*sqlparser.SQLVal); ok {
 						vals = append(vals, sqlVal)
 					}
 				}
+				// 1=a --> a=1
 				if rok {
 					if sqlVal, ok := condition.Left.(*sqlparser.SQLVal); ok {
 						vals = append(vals, sqlVal)
@@ -126,6 +142,7 @@ func parseWhereOrJoinExprs(exprs sqlparser.Expr, tbInfos map[string]*tableInfo) 
 						}
 					}
 				}
+				// default ?
 			}
 		}
 		tuple := exprInfo{filter, referTables, cols, vals}
@@ -189,7 +206,7 @@ func nameMatch(node sqlparser.Expr, table, shardkey string) bool {
 // and appends them to filters, which can be shuffled and recombined
 // as needed.
 func splitAndExpression(filters []sqlparser.Expr, node sqlparser.Expr) []sqlparser.Expr {
-	// node 不是filters
+	// node 不是filters, 这里node命名应该改为filterExpr,filters-->exprList
 	if node == nil {
 		return filters
 	}
@@ -202,13 +219,14 @@ func splitAndExpression(filters []sqlparser.Expr, node sqlparser.Expr) []sqlpars
 		if node, ok := node.Expr.(*sqlparser.AndExpr); ok {
 			return splitAndExpression(filters, node)
 		}
+		// default ?
 	}
 	return append(filters, node)
 }
 
 // skipParenthesis skips the parenthesis (if any) of an expression and
 // returns the innermost unparenthesized expression.
-// 括号去掉
+// 括号去掉, node --- > expr ??
 func skipParenthesis(node sqlparser.Expr) sqlparser.Expr {
 	if node, ok := node.(*sqlparser.ParenExpr); ok {
 		return skipParenthesis(node.Expr)

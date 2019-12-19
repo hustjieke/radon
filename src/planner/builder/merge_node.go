@@ -92,6 +92,7 @@ func (m *MergeNode) getFields() []selectTuple {
 // pushFilter used to push the filter.
 func (m *MergeNode) pushFilter(filter exprInfo) error {
 	m.addWhere(filter.expr)
+	// t1.a = 1
 	if len(filter.referTables) == 1 {
 		tbInfo := m.referTables[filter.referTables[0]]
 		if tbInfo.shardKey != "" && len(filter.vals) > 0 {

@@ -99,6 +99,7 @@ func scanAliasedTableExpr(log *xlog.Log, r *router.Router, database string, tabl
 	var err error
 	// merge node是叶子结点,可以直接下发,join node不是
 	mn := newMergeNode(log, r)
+	// expr --- > simpleTblExpr,expr不明确
 	switch expr := tableExpr.Expr.(type) {
 	case sqlparser.TableName:
 		// 如果没有指定db,默认采用当前sesson的db,这里就是改写sql的开始了
@@ -113,6 +114,7 @@ func scanAliasedTableExpr(log *xlog.Log, r *router.Router, database string, tabl
 		if expr.Qualifier.IsEmpty() {
 			expr.Qualifier = sqlparser.NewTableIdent(database)
 		}
+		// TODO(gry) 这里确认下expr的改动是否直接影响tableExpr.Expr,如果是就不需要再赋值
 		tableExpr.Expr = expr
 		tn.tableName = expr.Name.String()
 		tn.tableConfig, err = r.TableConfig(tn.database, tn.tableName)
@@ -142,6 +144,7 @@ func scanAliasedTableExpr(log *xlog.Log, r *router.Router, database string, tabl
 			mn.nonGlobalCnt = 1
 		}
 
+		// 这行代码要移到159行之后,或者167行之后
 		tn.parent = mn
 		// 这里,已经可以通过tn.tableExpr拿到别名,如果case是hash或者list
 		// 另外我给GLOBAL和SINGLE也可以做一个别名这样的操作,只不过别名就是其本身,无用功呗
@@ -150,7 +153,7 @@ func scanAliasedTableExpr(log *xlog.Log, r *router.Router, database string, tabl
 		tn.alias = tableExpr.As.String()
 		// 这段逻辑,可能考虑到GloBal或者SingLE那边没有赋值别名,那这里可不可以是一个优化点
 		if tn.alias != "" {
-			// 如果有别名,那就用别名替换,这里考虑到了不管是不是global/single/hash/list
+			// 如果有别名,那就用别名替换
 			mn.referTables[tn.alias] = tn
 		} else {
 			mn.referTables[tn.tableName] = tn
@@ -191,11 +194,16 @@ func scanJoinTableExpr(log *xlog.Log, router *router.Router, database string, jo
 // join build a PlanNode subtree by judging whether left and right can be merged.
 // If can be merged, left and right merge into one MergeNode.
 // else build a JoinNode, the two nodes become new joinnode's Left and Right.
+// TODO(gry) scanJoinTableExpr()和scanTableExprs()分别调用,两者处理的逻辑不一致的地方:joinExpr是否为nil
+// 可以考虑拆解join,例如:
+// jionByPlanNode() {joinImpl()}
+// jionByJoinExpr() {joinImpl()}
 func join(log *xlog.Log, lpn, rpn PlanNode, joinExpr *sqlparser.JoinTableExpr, router *router.Router) (PlanNode, error) {
 	var joinOn, otherJoinOn []exprInfo
 	var err error
 
 	// 到208合并到一个函数,判断合并,从叶子节点mergeNode.getReferTables()合并,开始递归
+	// TODO(gry)lpn拿到referTables可以直接拿来初始化吧?
 	referTables := make(map[string]*tableInfo)
 	for k, v := range lpn.getReferTables() {
 		referTables[k] = v
@@ -286,8 +294,10 @@ func mergeRoutes(lmn, rmn *MergeNode, joinExpr *sqlparser.JoinTableExpr, otherJo
 		rSel.From = sqlparser.TableExprs{&sqlparser.ParenTableExpr{Exprs: rSel.From}}
 	}
 	if joinExpr == nil {
+		// select ... from t1, t2
 		lSel.From = append(lSel.From, rSel.From...)
 	} else {
+		// t1 join t2
 		lSel.From = sqlparser.TableExprs{joinExpr}
 	}
 
