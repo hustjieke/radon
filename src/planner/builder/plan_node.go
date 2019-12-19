@@ -94,6 +94,7 @@ func addFilter(s PlanNode, filter exprInfo) {
 
 // pushFilters push a WHERE clause down, and update the PlanNode info.
 func pushFilters(s PlanNode, expr sqlparser.Expr) (PlanNode, error) {
+	// TODO(gry) select * from t1,t2 where t1.a=t2.a
 	joins, filters, err := parseWhereOrJoinExprs(expr, s.getReferTables())
 	if err != nil {
 		return s, err

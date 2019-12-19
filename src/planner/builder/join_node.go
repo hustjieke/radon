@@ -100,6 +100,7 @@ type JoinNode struct {
 	// The cross-shard filters.
 	otherFilter []exprInfo
 	// The filters without tables, always true or false.
+	// TODO(gry) 常量表达式-->noTableFilter-->constant exprs
 	noTableFilter []sqlparser.Expr
 	// The join conditions except for the equal condition in left join.
 	otherLeftJoin *otherJoin
@@ -108,6 +109,7 @@ type JoinNode struct {
 	// whether is left join.
 	IsLeftJoin bool
 	// whether the right node has filters in left join.
+	// TODO(var)
 	HasRightFilter bool
 	// record the `otherLeftJoin.left`'s index in left.fields.
 	LeftTmpCols []int
@@ -151,13 +153,16 @@ func (j *JoinNode) getFields() []selectTuple {
 }
 
 // pushFilter used to push the filter.
+// TODO(gry) ?? 待定
 func (j *JoinNode) pushFilter(filter exprInfo) error {
+	// 常量表达式
 	if len(filter.referTables) == 0 {
 		j.noTableFilter = append(j.noTableFilter, filter.expr)
 		return nil
 	}
 
 	rightTbs := j.Right.getReferTables()
+	// TODO(gry) select * from t1 left join t2 on t1.a=t2.a where t2.b is null and t2.c>1 and 1=1;
 	if j.IsLeftJoin {
 		// If left join's right node has "is null" condition, the condition
 		// will record in rightNull instead of push down.

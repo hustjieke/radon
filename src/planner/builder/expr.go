@@ -42,6 +42,7 @@ func parseWhereOrJoinExprs(exprs sqlparser.Expr, tbInfos map[string]*tableInfo) 
 	// TODO(gry)splitAndExpression-->splitExprsByAnd
 	// filters --> exprList
 	filters := splitAndExpression(nil, exprs)
+	// TODO ?? 为什么叫joins??joinExprInfos, whereExprInfos?
 	var joins, wheres []exprInfo
 
 	for _, filter := range filters {
@@ -108,8 +109,8 @@ func parseWhereOrJoinExprs(exprs sqlparser.Expr, tbInfos map[string]*tableInfo) 
 				// if lok && rok {
 				// 	if lc.Qualifier != rc.Qualifier {
 				// 	}
-				// } else if lok {
-				// } else if rok {
+				// } else if lok && !rok {
+				// } else if !lok && rok {
 				// }
 
 				if lok {
@@ -356,6 +357,7 @@ func convertToLeftJoin(joinExpr *sqlparser.JoinTableExpr) {
 // checkJoinOn use to check the join on conditions, according to lpn|rpn to  determine join.cols[0]|cols[1].
 // eg: select * from t1 join t2 on t1.a=t2.a join t3 on t2.b=t1.b. 't2.b=t1.b' is forbidden.
 func checkJoinOn(lpn, rpn PlanNode, join exprInfo) (exprInfo, error) {
+	// TODO(gry) lt rt ?? leftTbl, rightTbl
 	lt := join.cols[0].Qualifier.Name.String()
 	rt := join.cols[1].Qualifier.Name.String()
 	if _, ok := lpn.getReferTables()[lt]; ok {

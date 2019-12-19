@@ -177,6 +177,7 @@ func setAggregatorType(hasAggr, hasDist, isMergeNode bool) aggrType {
 }
 
 // checkIsWithNull used to check whether `tb.col is null` or `tb.col<=> null`.
+// TODO(gry) 函数名跟返回值不一致
 func checkIsWithNull(filter exprInfo, tbInfos map[string]*tableInfo) (bool, selectTuple) {
 	if !checkTbInNode(filter.referTables, tbInfos) {
 		return false, selectTuple{}

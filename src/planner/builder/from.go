@@ -199,6 +199,7 @@ func scanJoinTableExpr(log *xlog.Log, router *router.Router, database string, jo
 // jionByPlanNode() {joinImpl()}
 // jionByJoinExpr() {joinImpl()}
 func join(log *xlog.Log, lpn, rpn PlanNode, joinExpr *sqlparser.JoinTableExpr, router *router.Router) (PlanNode, error) {
+	// TODO(gry) joinOn --> joinOnExprList, otherJoinOn-->....
 	var joinOn, otherJoinOn []exprInfo
 	var err error
 
@@ -260,6 +261,7 @@ func join(log *xlog.Log, lpn, rpn PlanNode, joinExpr *sqlparser.JoinTableExpr, r
 				return mergeRoutes(lmn, rmn, joinExpr, otherJoinOn)
 			}
 			// if join on condition's cols are both shardkey, and the tables have same shards.
+			// 如果拆分开的话, 不是joinnode合并就不需要走这段代码了
 			for _, jt := range joinOn {
 				if isSameShard(lmn.referTables, rmn.referTables, jt.cols[0], jt.cols[1]) {
 					return mergeRoutes(lmn, rmn, joinExpr, otherJoinOn)
@@ -287,7 +289,9 @@ func mergeRoutes(lmn, rmn *MergeNode, joinExpr *sqlparser.JoinTableExpr, otherJo
 	var err error
 	lSel := lmn.Sel.(*sqlparser.Select)
 	rSel := rmn.Sel.(*sqlparser.Select)
+	// 如果左右原来都有括号，merge出来的形式:select ... from (...), (...)
 	if lmn.hasParen {
+		// 如果有括号,加上括号还原
 		lSel.From = sqlparser.TableExprs{&sqlparser.ParenTableExpr{Exprs: lSel.From}}
 	}
 	if rmn.hasParen {
@@ -302,6 +306,7 @@ func mergeRoutes(lmn, rmn *MergeNode, joinExpr *sqlparser.JoinTableExpr, otherJo
 	}
 
 	for k, v := range rmn.getReferTables() {
+		// table 所在的节点
 		v.parent = lmn
 		lmn.referTables[k] = v
 	}
@@ -311,17 +316,20 @@ func mergeRoutes(lmn, rmn *MergeNode, joinExpr *sqlparser.JoinTableExpr, otherJo
 
 	lmn.nonGlobalCnt += rmn.nonGlobalCnt
 	if joinExpr == nil || joinExpr.Join != sqlparser.LeftJoinStr {
+		// TODO(gry)otherJoinOn: left join ...除了等值join的其它条件
 		for _, filter := range otherJoinOn {
 			if err := lmn.pushFilter(filter); err != nil {
 				return lmn, err
 			}
 		}
 	}
+	// old lnm--- > new lmn
 	return lmn, err
 }
 
 // isSameShard used to judge lcn|rcn contain shardkey and have same shards.
 func isSameShard(ltb, rtb map[string]*tableInfo, lcn, rcn *sqlparser.ColName) bool {
+	// TODO(gry) 变量名会不会过于简单了,要反复查看
 	lt := ltb[lcn.Qualifier.Name.String()]
 	if lt.shardKey == "" || lt.shardKey != lcn.Name.String() {
 		return false

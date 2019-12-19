@@ -34,6 +34,7 @@ type MergeNode struct {
 	// if the query can be pushed down a backend, record.
 	backend string
 	// the shard index slice.
+	// 如果条件表达式没有sharkey,indexs为0
 	indexes []int
 	// length of the route.
 	routeLen int
@@ -90,14 +91,18 @@ func (m *MergeNode) getFields() []selectTuple {
 }
 
 // pushFilter used to push the filter.
+// TODO(gry) pushFilter含义不明确
 func (m *MergeNode) pushFilter(filter exprInfo) error {
+	// TODO(gry) 谓词下推,表达式加入语法树where, a > 1 --- > where a > 1 and .....
 	m.addWhere(filter.expr)
-	// t1.a = 1
+	// TODO 1) t1.a = 1  2) in (1,2...)
 	if len(filter.referTables) == 1 {
 		tbInfo := m.referTables[filter.referTables[0]]
+		// TODO in (1,2), len(filter.vals) > 0 这个条件 1) t1.a = 1 , 2) in (1,2,...)
 		if tbInfo.shardKey != "" && len(filter.vals) > 0 {
 			if nameMatch(filter.cols[0], filter.referTables[0], tbInfo.shardKey) {
 				for _, val := range filter.vals {
+					// TODO(gry) fetchIndex操作和pushFilter可以拆分
 					if err := fetchIndex(tbInfo, val, m.router); err != nil {
 						return err
 					}
