@@ -35,6 +35,7 @@ test:
 	@$(MAKE) testmonitor
 	@$(MAKE) testplugins
 	@$(MAKE) testfuzz
+	@$(MAKE) testshift
 
 testxbase:
 	go test -v -race xbase
