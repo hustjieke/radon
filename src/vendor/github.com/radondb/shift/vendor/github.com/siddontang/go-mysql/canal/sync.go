@@ -193,7 +193,12 @@ func (c *Canal) runSyncBinlog() error {
 }
 
 func (c *Canal) updateReplicationDelay(ev *replication.BinlogEvent) {
-	atomic.AddUint32(c.delay, uint32(time.Now().Unix())-ev.Header.Timestamp)
+	var newDelay uint32
+	now := uint32(time.Now().Unix())
+	if now >= ev.Header.Timestamp {
+		newDelay = now - ev.Header.Timestamp
+	}
+	atomic.StoreUint32(c.delay, newDelay)
 }
 
 func (c *Canal) handleRowsEvent(e *replication.BinlogEvent) error {
