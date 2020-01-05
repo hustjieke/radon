@@ -93,13 +93,13 @@ func (c *Canal) runSyncBinlog() error {
 			}
 			continue
 		case *replication.XIDEvent:
-			if e.GSet != nil {
-				c.master.UpdateGTIDSet(e.GSet)
-			}
 			savePos = true
 			// try to save the position later
 			if err := c.eventHandler.OnXID(pos); err != nil {
 				return errors.Trace(err)
+			}
+			if e.GSet != nil {
+				c.master.UpdateGTIDSet(e.GSet)
 			}
 		case *replication.MariadbGTIDEvent:
 			// try to save the GTID later
@@ -120,10 +120,6 @@ func (c *Canal) runSyncBinlog() error {
 				return errors.Trace(err)
 			}
 		case *replication.QueryEvent:
-			if e.GSet != nil {
-				c.master.UpdateGTIDSet(e.GSet)
-			}
-
 			// Handle XA.
 			if strings.HasPrefix(string(e.Query), "XA") {
 				savePos = true
@@ -169,6 +165,9 @@ func (c *Canal) runSyncBinlog() error {
 				if err = c.eventHandler.OnDDL(pos, e); err != nil {
 					return errors.Trace(err)
 				}
+			}
+			if e.GSet != nil {
+				c.master.UpdateGTIDSet(e.GSet)
 			}
 		default:
 			if pos.Pos > 0 {
