@@ -245,7 +245,7 @@ func (c *Canal) Close() {
 	c.connLock.Unlock()
 	c.syncer.Close()
 
-	c.eventHandler.OnPosSynced(c.master.Position(), true)
+	c.eventHandler.OnPosSynced(c.master.Position(), c.master.GTIDSet(), true)
 }
 
 func (c *Canal) WaitDumpDone() <-chan struct{} {

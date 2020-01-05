@@ -61,7 +61,10 @@ func TestSetUpSuite(t *testing.T) {
 
 	s.c.SetEventHandler(&testEventHandler{})
 	go func() {
-		err = s.c.Run()
+		// issue:https://github.com/siddontang/go-mysql/commit/8804d83ea8328534e3c47c0f1bf5a34d8a455a60
+		// err = s.c.Run()
+		set, _ := mysql.ParseGTIDSet("mysql", "")
+		err = s.c.StartFromGTID(set)
 		assert.Nil(t, err)
 	}()
 }
@@ -83,6 +86,10 @@ func (h *testEventHandler) OnRow(e *RowsEvent) error {
 
 func (h *testEventHandler) String() string {
 	return "testEventHandler"
+}
+
+func (h *testEventHandler) OnPosSynced(p mysql.Position, set mysql.GTIDSet, f bool) error {
+	return nil
 }
 
 func TestCanal(t *testing.T) {
