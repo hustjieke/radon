@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/satori/go.uuid"
+	uuid "github.com/satori/go.uuid"
 	"github.com/siddontang/go-log/log"
 	"github.com/siddontang/go-mysql/mysql"
 	"github.com/siddontang/go-mysql/replication"

@@ -29,6 +29,7 @@ script:
   - make build
   - make test
   - make coverage
+  - make testshift
 
 after_success:
   # send coverage reports to Codecov
