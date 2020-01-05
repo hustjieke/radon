@@ -11,8 +11,9 @@ before_script:
   - mysqld --defaults-file=.travis/my3307.cnf &
   - mysqld --defaults-file=.travis/my3309.cnf --initialize-insecure
   - mysqld --defaults-file=.travis/my3309.cnf &
-  - git clone https://github.com/radondb/radon.git
+  - git clone https://github.com/hustjieke/radon.git
   - cd radon
+  - git checkout feature_fix_misused_of_waitgroup_in_shift_#556_test
   - make
   - mkdir -p bin/bin/radon-meta
   - cp ../.travis/backend.json bin/bin/radon-meta/
