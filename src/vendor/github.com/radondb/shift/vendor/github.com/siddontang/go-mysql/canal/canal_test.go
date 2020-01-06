@@ -48,6 +48,8 @@ func TestSetUpSuite(t *testing.T) {
 			id int AUTO_INCREMENT,
 			content blob DEFAULT NULL,
             name varchar(100),
+			mi mediumint(8) NOT NULL DEFAULT 0,
+			umi mediumint(8) unsigned NOT NULL DEFAULT 0,
             PRIMARY KEY(id)
             )ENGINE=innodb;
     `
@@ -55,7 +57,7 @@ func TestSetUpSuite(t *testing.T) {
 	execute(t, sql)
 
 	execute(t, "DELETE FROM test.canal_test")
-	execute(t, "INSERT INTO test.canal_test (content, name) VALUES (?, ?), (?, ?), (?, ?)", "1", "a", `\0\ndsfasdf`, "b", "", "c")
+	execute(t, "INSERT INTO test.canal_test (content, name, mi, umi) VALUES (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)", "1", "a", 0, 0, `\0\ndsfasdf`, "b", 1, 16777215, "", "c", -1, 1)
 
 	execute(t, "SET GLOBAL binlog_format = 'ROW'")
 
@@ -81,6 +83,10 @@ type testEventHandler struct {
 
 func (h *testEventHandler) OnRow(e *RowsEvent) error {
 	log.Infof("OnRow %s %v\n", e.Action, e.Rows)
+	umi, ok := e.Rows[0][4].(uint32) // 4th col is umi. mysqldump gives uint64 instead of uint32
+	if ok && (umi != 0 && umi != 1 && umi != 16777215) {
+		return fmt.Errorf("invalid unsigned medium int %d", umi)
+	}
 	return nil
 }
 
@@ -98,6 +104,7 @@ func TestCanal(t *testing.T) {
 	for i := 1; i < 10; i++ {
 		execute(t, "INSERT INTO test.canal_test (name) VALUES (?)", fmt.Sprintf("%d", i))
 	}
+	execute(t, "INSERT INTO test.canal_test (mi,umi) VALUES (?,?), (?,?), (?,?)", 0, 0, -1, 16777215, 1, 1)
 	execute(t, "ALTER TABLE test.canal_test ADD `age` INT(5) NOT NULL AFTER `name`")
 	execute(t, "INSERT INTO test.canal_test (name,age) VALUES (?,?)", "d", "18")
 
