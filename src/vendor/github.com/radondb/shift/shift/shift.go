@@ -42,7 +42,7 @@ type Shift struct {
 	atomicBool sync2.AtomicBool // true: canal run normal; false: canal get some exception
 }
 
-func NewShift(log *xlog.Log, cfg *Config) *Shift {
+func NewShift(log *xlog.Log, cfg *Config) ShiftHandler {
 	log.Info("shift.cfg:%#v", cfg)
 	return &Shift{
 		log:           log,

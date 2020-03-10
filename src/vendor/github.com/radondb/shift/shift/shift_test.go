@@ -1078,7 +1078,7 @@ func TestShiftWithRadonShardShiftError(t *testing.T) {
 
 func TestShiftStart(t *testing.T) {
 	log := xlog.NewStdLog(xlog.Level(xlog.DEBUG))
-	shift := NewShift(log, mockCfg)
+	shift, _ := NewShift(log, mockCfg).(*Shift)
 	defer shift.close()
 
 	err := shift.Start()
@@ -1116,7 +1116,7 @@ func TestShiftRadonThrottle(t *testing.T) {
 // Fix bug for issue #4
 func TestShiftCanalClose(t *testing.T) {
 	log := xlog.NewStdLog(xlog.Level(xlog.DEBUG))
-	shift := NewShift(log, mockCfg)
+	shift, _ := NewShift(log, mockCfg).(*Shift)
 	// Replace time ticker every 5s to 1s, 5s is to long for us to test
 	shift.behindsTicker = time.NewTicker(time.Duration(1000) * time.Millisecond)
 	h := mockHttp(log, restfulPort, mockRadonReadonly, mockRadonShift, mockRadonThrottle)
@@ -1329,7 +1329,7 @@ func TestShiftParseBOM(t *testing.T) {
 
 	// shift table normal
 	{
-		shift := NewShift(log, mockCfg)
+		shift, _ := NewShift(log, mockCfg).(*Shift)
 		h := mockHttp(log, restfulPort, mockRadonReadonly, mockRadonShift, mockRadonThrottle)
 
 		shift.cfg.FromDatabase = "DTtest"
@@ -1350,7 +1350,7 @@ func TestShiftParseBOM(t *testing.T) {
 
 	// shift table test_geo
 	{
-		shift := NewShift(log, mockCfg)
+		shift, _ := NewShift(log, mockCfg).(*Shift)
 		h := mockHttp(log, restfulPort, mockRadonReadonly, mockRadonShift, mockRadonThrottle)
 
 		shift.cfg.FromDatabase = "DTtest"
@@ -1371,7 +1371,7 @@ func TestShiftParseBOM(t *testing.T) {
 
 	// shift table test_parse_time
 	{
-		shift := NewShift(log, mockCfg)
+		shift, _ := NewShift(log, mockCfg).(*Shift)
 		h := mockHttp(log, restfulPort, mockRadonReadonly, mockRadonShift, mockRadonThrottle)
 
 		shift.cfg.FromDatabase = "DTtest"
@@ -1394,7 +1394,7 @@ func TestShiftParseBOM(t *testing.T) {
 // This test is also suit for issue https://github.com/radondb/radon/issues/556
 func TestDataRaceOnCanalStatus(t *testing.T) {
 	log := xlog.NewStdLog(xlog.Level(xlog.DEBUG))
-	shift := NewShift(log, mockCfg)
+	shift, _ := NewShift(log, mockCfg).(*Shift)
 
 	// The detection is opportunistically, but we want exit normally
 	// on run out of a million times.
@@ -1423,7 +1423,7 @@ func TestDataRaceOnCanalStatus(t *testing.T) {
 // for issue #40
 func TestFatalExit(t *testing.T) {
 	log := xlog.NewStdLog(xlog.Level(xlog.DEBUG))
-	shift := NewShift(log, mockCfg)
+	shift, _ := NewShift(log, mockCfg).(*Shift)
 
 	// The detection is opportunistically, but we want exit normally
 	// on run out of a million times.
@@ -1523,7 +1523,7 @@ func TestSupportShiftToRadonDB(t *testing.T) {
 
 	// shift table normal
 	{
-		shift := NewShift(log, mockRadonDBCfg)
+		shift, _ := NewShift(log, mockRadonDBCfg).(*Shift)
 		shift.cfg.FromDatabase = "DTtest"
 		shift.cfg.ToDatabase = "DTtest"
 		shift.cfg.FromTable = "normal"
