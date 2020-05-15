@@ -42,6 +42,9 @@ func (r *Router) writeTableFrmData(db string, table string, tconf *config.TableC
 
 	log.Info("frm.write.data[db:%s, table:%s, shardType:%s]", db, table, tconf.ShardType)
 	file := path.Join(dir, fmt.Sprintf("%s.json", table))
+	// Currently radon don`t support table name like `a/a`, in MySQL, `/` will be converted to `@002f`
+	// by func strconvert(), e.g.:`a/a` will first converted to `a@002fa` and then write to disk.
+	// see: https://github.com/mysql/mysql-server/blob/5.7/sql/sql_table.cc#L518
 	if err := config.WriteConfig(file, tconf); err != nil {
 		log.Error("frm.write.to.file[%v].error:%v", file, err)
 		return err

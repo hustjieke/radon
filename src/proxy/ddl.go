@@ -213,7 +213,11 @@ func (spanner *Spanner) handleDDL(session *driver.Session, query string, node *s
 		tableType := router.TableTypeUnknown
 
 		if !checkDatabaseExists(database, route) {
-			return nil, sqldb.NewSQLError(sqldb.ER_NO_DB_ERROR)
+			if database == "" {
+				return nil, sqldb.NewSQLError(sqldb.ER_NO_DB_ERROR)
+			} else {
+				return nil, sqldb.NewSQLError(sqldb.ER_BAD_DB_ERROR, database)
+			}
 		}
 
 		// Check table exists.

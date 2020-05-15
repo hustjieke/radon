@@ -150,4 +150,7 @@ drop table if exists integrate_test.t1,integrate_test.t2,integrate_test.t3;
 CREATE TABLE integrate_test.t1 (v varchar(65535) key) DEFAULT CHARSET=utf8;
 DROP TABLE IF EXISTS integrate_test.t1;
 
+create /*testing bad database*/ table not_existing_database.test (a int key);
+create /*testing table name with char '/', currently we don`t support it*/ table integrate_test.`a/a` (a int key);
+
 drop database integrate_test;
