@@ -71,6 +71,13 @@ func TestFrmTable(t *testing.T) {
 		assert.NotNil(t, err)
 	}
 
+	// Add table error, table name include "/".
+	{
+		backends := []string{"backend1", "backend2"}
+		err := router.CreateHashTable("test", "t2/t/t", "id", TableTypePartitionHash, backends, sqlparser.NewIntVal([]byte("16")), nil)
+		assert.EqualError(t, err, "invalid.table.name.currently.not.support.tablename.contains.with.char:'/'")
+	}
+
 	// Add global table.
 	{
 		backends := []string{"backend1", "backend2"}
@@ -347,7 +354,7 @@ func TestFrmAddTableForTest(t *testing.T) {
 }
 
 func TestFrmDatabaseNoTables(t *testing.T) {
-	log := xlog.NewStdLog(xlog.Level(xlog.DEBUG))
+	log := xlog.NewStdLog(xlog.Level(xlog.PANIC))
 	router, cleanup := MockNewRouter(log)
 	defer cleanup()
 
@@ -559,4 +566,15 @@ func TestFrmTableCreateListTable(t *testing.T) {
 		err = router.CreateListTable("test", "l", "id", TableTypePartitionList, partitionDef, &Extra{&config.AutoIncrement{"id"}})
 		assert.NotNil(t, err)
 	}
+}
+
+func TestCreateDatabaseError(t *testing.T) {
+	log := xlog.NewStdLog(xlog.Level(xlog.PANIC))
+	router, cleanup := MockNewRouter(log)
+	defer cleanup()
+
+	err := router.CreateDatabase("")
+	assert.EqualError(t, err, "router.database.should.not.be.empty")
+	err = router.CreateDatabase("x/x/db")
+	assert.EqualError(t, err, "invalid.database.name.currently.not.support.dbname.contains.with.char:'/'")
 }
