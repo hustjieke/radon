@@ -29,7 +29,6 @@ func checkEngine(ddl *sqlparser.DDL) error {
 		return nil
 	}
 
-	// Change the storage engine to InnoDB.
 	// see: https://github.com/mysql/mysql-server/blob/5.7/sql/sql_yacc.yy#L6181
 	// for mysql support engine type(named: enum legacy_db_type)
 	// see: https://github.com/mysql/mysql-server/blob/5.7/sql/handler.h#L397

@@ -161,4 +161,7 @@ create /*testing invalid database name with '/' */ database `database/bad`;
 
 create /*testing invalid engine name*/ table integrate_test.t(a int) engine=unkown partition by hash(a);
 
+CREATE /*testing db name bigger than max_len(64)*/ DATABASE t01234567890123456789012345678901234567890123456789012345678901234567890123456789;
+CREATE /*testing table name bigger than max_len(64)*/ table integrate_test.t01234567890123456789012345678901234567890123456789012345678901234567890123456789(a int key);
+
 drop database integrate_test;

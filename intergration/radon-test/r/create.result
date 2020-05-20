@@ -364,4 +364,11 @@ create /*testing invalid engine name*/ table integrate_test.t(a int) engine=unko
 ERROR 1286 (42000): Unknown storage engine 'unkown', currently we only support InnoDB and TokuDB
 
 
+CREATE /*testing db name bigger than max_len(64)*/ DATABASE t01234567890123456789012345678901234567890123456789012345678901234567890123456789;
+ERROR 1059 (42000): Identifier name 't01234567890123456789012345678901234567890123456789012345678901234567890123456789' is too long
+
+CREATE /*testing table name bigger than max_len(64)*/ table integrate_test.t01234567890123456789012345678901234567890123456789012345678901234567890123456789(a int key);
+ERROR 1059 (42000): Identifier name 't01234567890123456789012345678901234567890123456789012345678901234567890123456789' is too long
+
+
 drop database integrate_test;

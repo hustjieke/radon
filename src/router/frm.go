@@ -32,6 +32,11 @@ const (
 	TableTypePartitionRange = "range"
 )
 
+const (
+	NAME_CHAR_LEN     = 64
+	TABLE_NAME_SUFFIX = 5 // table name suffix: "_0032"
+)
+
 // writeTableFrmData used to write table's json schema to file.
 // The file name is : [schema-dir]/[database]/[table].json.
 // If the [schema-dir]/[database] directoryis not exists, we will create it first.
@@ -122,6 +127,9 @@ func (r *Router) CreateDatabase(db string) error {
 	defer r.mu.Unlock()
 
 	log := r.log
+	if len(db) > NAME_CHAR_LEN {
+		return sqldb.NewSQLError(sqldb.ER_TOO_LONG_IDENT, db)
+	}
 	if r.checkNameInvalid(db) {
 		log.Error("frm.check.database.name[%v].invalid.contains.char:'/' or space ' '", db)
 		return errors.Errorf("invalid.database.name.currently.not.support.dbname[%v].contains.with.char:'/' or space ' '", db)
@@ -139,7 +147,6 @@ func (r *Router) CreateDatabase(db string) error {
 		return err
 	}
 	if err := config.UpdateVersion(r.metadir); err != nil {
-		// TODO if err happend, should we drop/rm db/table in memory and disk?
 		log.Panicf("frm.create.table.update.version.error:%v", err)
 		return err
 	}
@@ -317,6 +324,10 @@ func (r *Router) createTable(db, table string, tableConf *config.TableConfig) er
 	var err error
 	log := r.log
 
+	// see func in mysql sql/table.cc: check_and_convert_db_name() and check_table_name()
+	if (len(table) + TABLE_NAME_SUFFIX) > NAME_CHAR_LEN {
+		return sqldb.NewSQLError(sqldb.ER_TOO_LONG_IDENT, table)
+	}
 	if r.checkNameInvalid(table) {
 		log.Error("frm.check.table.name[%v].invalid.contains.char:'/' or space ' '", table)
 		return errors.Errorf("invalid.table.name.currently.not.support.tablename[%v].contains.with.char:'/' or space ' '", table)

@@ -75,7 +75,14 @@ func TestFrmTable(t *testing.T) {
 	{
 		backends := []string{"backend1", "backend2"}
 		err := router.CreateHashTable("test", "t2/t/t", "id", TableTypePartitionHash, backends, sqlparser.NewIntVal([]byte("16")), nil)
-		assert.EqualError(t, err, "invalid.table.name.currently.not.support.tablename.contains.with.char:'/'")
+		assert.EqualError(t, err, "invalid.table.name.currently.not.support.tablename[t2/t/t].contains.with.char:'/' or space ' '")
+	}
+
+	// table name to long error
+	{
+		backends := []string{"backend1", "backend2"}
+		err := router.CreateHashTable("test", "t012345678901234567890123456789012345678901234567890123456789", "id", TableTypePartitionHash, backends, sqlparser.NewIntVal([]byte("16")), nil)
+		assert.EqualError(t, err, "Identifier name 't012345678901234567890123456789012345678901234567890123456789' is too long (errno 1059) (sqlstate 42000)")
 	}
 
 	// Add global table.
@@ -575,6 +582,10 @@ func TestCreateDatabaseError(t *testing.T) {
 
 	err := router.CreateDatabase("")
 	assert.EqualError(t, err, "router.database.should.not.be.empty")
+
 	err = router.CreateDatabase("x/x/db")
-	assert.EqualError(t, err, "invalid.database.name.currently.not.support.dbname.contains.with.char:'/'")
+	assert.EqualError(t, err, "invalid.database.name.currently.not.support.dbname[x/x/db].contains.with.char:'/' or space ' '")
+
+	err = router.CreateDatabase("t0123456789012345678901234567890123456789012345678901234567890123")
+	assert.EqualError(t, err, "Identifier name 't0123456789012345678901234567890123456789012345678901234567890123' is too long (errno 1059) (sqlstate 42000)")
 }
