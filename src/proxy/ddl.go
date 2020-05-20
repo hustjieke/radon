@@ -21,27 +21,22 @@ import (
 	"github.com/xelabs/go-mysqlstack/sqlparser/depends/sqltypes"
 )
 
-var (
-	supportEngines = []string{
-		"innodb",
-		"tokudb",
-	}
-)
-
-func checkEngine(ddl *sqlparser.DDL) {
-	check := false
+func checkEngine(ddl *sqlparser.DDL) error {
 	engine := ddl.TableSpec.Options.Engine
-	for _, eng := range supportEngines {
-		if eng == strings.ToLower(engine) {
-			check = true
-			break
-		}
+	if engine == "" {
+		// default set engine InnoDB if engine is empty.
+		ddl.TableSpec.Options.Engine = "InnoDB"
+		return nil
 	}
 
 	// Change the storage engine to InnoDB.
-	if !check {
-		ddl.TableSpec.Options.Engine = "InnoDB"
+	// see: https://github.com/mysql/mysql-server/blob/5.7/sql/sql_yacc.yy#L6181
+	// for mysql support engine type(named: enum legacy_db_type)
+	// see: https://github.com/mysql/mysql-server/blob/5.7/sql/handler.h#L397
+	if strings.ToLower(engine) == "innodb" || strings.ToLower(engine) == "tokudb" {
+		return nil
 	}
+	return sqldb.NewSQLError(sqldb.ER_UNKNOWN_STORAGE_ENGINE, engine)
 }
 
 func tryGetShardKey(ddl *sqlparser.DDL) (string, error) {
@@ -222,7 +217,9 @@ func (spanner *Spanner) handleDDL(session *driver.Session, query string, node *s
 		}
 
 		// Check engine.
-		checkEngine(ddl)
+		if err := checkEngine(ddl); err != nil {
+			return nil, err
+		}
 
 		autoinc, err := autoincrement.GetAutoIncrement(node)
 		if err != nil {

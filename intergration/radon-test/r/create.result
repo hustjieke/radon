@@ -360,4 +360,8 @@ create /*testing invalid database name with '/' */ database `database/bad`;
 ERROR 1105 (HY000): invalid.database.name.currently.not.support.dbname[database/bad].contains.with.char:'/' or space ' '
 
 
+create /*testing invalid engine name*/ table integrate_test.t(a int) engine=unkown partition by hash(a);
+ERROR 1286 (42000): Unknown storage engine 'unkown', currently we only support InnoDB and TokuDB
+
+
 drop database integrate_test;

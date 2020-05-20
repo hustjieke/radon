@@ -159,4 +159,6 @@ create /*testing invalid database name*/ database `database bad/name/db/`;
 create /*testing invalid database name with space char ' '*/ database `database bad`;
 create /*testing invalid database name with '/' */ database `database/bad`;
 
+create /*testing invalid engine name*/ table integrate_test.t(a int) engine=unkown partition by hash(a);
+
 drop database integrate_test;

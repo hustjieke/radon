@@ -270,7 +270,7 @@ var CharacterSetMap = map[string]uint8{
 
 const (
 	// Error codes for server-side errors.
-	// Originally found in include/mysql/mysqld_error.h
+	// Originally found in include/mysqld_error.h
 
 	// ER_ERROR_FIRST enum.
 	ER_ERROR_FIRST uint16 = 1000
@@ -311,6 +311,9 @@ const (
 	// ER_SPECIFIC_ACCESS_DENIED_ERROR enum.
 	ER_SPECIFIC_ACCESS_DENIED_ERROR = 1227
 
+	// ER_UNKNOWN_STORAGE_ENGINE enum.
+	ER_UNKNOWN_STORAGE_ENGINE = 1286
+
 	// ER_OPTION_PREVENTS_STATEMENT enum.
 	ER_OPTION_PREVENTS_STATEMENT = 1290
 
@@ -346,6 +349,7 @@ var SQLErrors = map[uint16]*SQLError{
 	ER_NO_SUCH_TABLE:                &SQLError{Num: ER_NO_SUCH_TABLE, State: "42S02", Message: "Table '%s' doesn't exist"},
 	ER_SYNTAX_ERROR:                 &SQLError{Num: ER_SYNTAX_ERROR, State: "42000", Message: "You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use, %s"},
 	ER_SPECIFIC_ACCESS_DENIED_ERROR: &SQLError{Num: ER_SPECIFIC_ACCESS_DENIED_ERROR, State: "42000", Message: "Access denied; you need (at least one of) the %-.128s privilege(s) for this operation"},
+	ER_UNKNOWN_STORAGE_ENGINE:       &SQLError{Num: ER_UNKNOWN_STORAGE_ENGINE, State: "42000", Message: "Unknown storage engine '%v', currently we only support InnoDB and TokuDB"},
 	ER_OPTION_PREVENTS_STATEMENT:    &SQLError{Num: ER_OPTION_PREVENTS_STATEMENT, State: "42000", Message: "The MySQL server is running with the %s option so it cannot execute this statement"},
 	ER_MALFORMED_PACKET:             &SQLError{Num: ER_MALFORMED_PACKET, State: "HY000", Message: "Malformed communication packet, err: %v"},
 	CR_SERVER_LOST:                  &SQLError{Num: CR_SERVER_LOST, State: "HY000", Message: ""},
