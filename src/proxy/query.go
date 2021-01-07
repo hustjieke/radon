@@ -380,6 +380,13 @@ func (spanner *Spanner) ComQuery(session *driver.Session, query string, bindVari
 			status = 1
 		}
 		spanner.auditLog(session, R, xbase.DO, query, qr, status)
+	case *sqlparser.Optimize:
+		log.Warning("proxy.query.optimize.query:%s", query)
+		if qr, err = spanner.handleOptimizeTable(session, query, node); err != nil {
+			log.Error("proxy.optimize[%s].from.session[%v].error:%+v", query, session.ID(), err)
+			status = 1
+		}
+		spanner.auditLog(session, R, xbase.OPTIMIZE, query, qr, status)
 		return returnQuery(qr, callback, err)
 	default:
 		log.Error("proxy.unsupported[%s].from.session[%v]", query, session.ID())
@@ -388,6 +395,7 @@ func (spanner *Spanner) ComQuery(session *driver.Session, query string, bindVari
 		spanner.auditLog(session, R, xbase.UNSUPPORT, query, qr, status)
 		return err
 	}
+	return nil
 }
 
 // IsDML returns the DML query or not.
