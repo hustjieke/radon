@@ -119,6 +119,10 @@ func forceEOF(yylex interface{}) {
 	partitionOption       PartitionOption
 	showFilter            *ShowFilter
 	explainType	      ExplainType
+	checksumOptionEnum    ChecksumOptionEnum
+	optimizeOptionEnum    OptimizeOptionEnum
+	checkOptionEnum       CheckOptionEnum
+	checkOptionList       CheckOptionList
 }
 
 %token LEX_ERROR
@@ -191,7 +195,13 @@ func forceEOF(yylex interface{}) {
 	SET
 	LOCK
 	FULL
+	CHANGED
+	CHECK
 	CHECKSUM
+	FAST
+	MEDIUM
+	UPGRADE
+	
 
 %token	<bytes>
 	VALUES
@@ -341,15 +351,16 @@ func forceEOF(yylex interface{}) {
 	MODIFY
 
 %token	<bytes>
-	TABLE
-	INDEX
-	VIEW
-	TO
-	IGNORE
-	IF
-	USING
-	PRIMARY
 	COLUMN
+	IF
+	IGNORE
+	INDEX
+	PRIMARY
+	QUICK
+	TABLE
+	TO
+	VIEW
+	USING
 
 %token	<bytes>
 	DESC
@@ -591,6 +602,7 @@ func forceEOF(yylex interface{}) {
 	COMMITTED
 	UNCOMMITTED
 	SERIALIZABLE
+	NO_WRITE_TO_BINLOG
 
 
 // Radon Tokens
@@ -634,6 +646,8 @@ func forceEOF(yylex interface{}) {
 	use_statement
 	other_statement
 	checksum_statement
+	optimize_statement
+	check_statement
 
 %type	<bytes2>
 	comment_opt
@@ -698,6 +712,18 @@ func forceEOF(yylex interface{}) {
 
 %type	<explainType>
 	explain_format_opt
+
+%type	<checksumOptionEnum>
+	checksum_opt
+
+%type	<optimizeOptionEnum>
+	optimize_opt
+
+%type	<checkOptionEnum>
+	check_option
+
+%type	<checkOptionList>
+	check_option_list
 
 %type	<tableNames>
 	table_name_list
@@ -854,6 +880,7 @@ func forceEOF(yylex interface{}) {
 	kill_opt
 	restrict_or_cascade_opt
 	table_opt
+	table_or_tables
 	to_opt
 
 %type	<bytes>
@@ -1099,6 +1126,8 @@ command:
 |	transaction_statement
 |	radon_statement
 |	other_statement
+|	optimize_statement
+|	check_statement
 
 select_statement:
 	base_select order_by_opt limit_opt select_lock_opt
@@ -3014,7 +3043,7 @@ restrict_or_cascade_opt:
 	{}
 
 drop_statement:
-	DROP temporary_opt TABLE exists_opt table_name_list restrict_or_cascade_opt
+	DROP temporary_opt table_or_tables exists_opt table_name_list restrict_or_cascade_opt
 	{
 		var exists bool
 		if $4 != 0 {
@@ -3059,12 +3088,6 @@ truncate_statement:
 	TRUNCATE table_opt table_name
 	{
 		$$ = &DDL{Action: TruncateTableStr, Table: $3, NewName: $3}
-	}
-
-analyze_statement:
-	ANALYZE TABLE table_name
-	{
-		$$ = &DDL{Action: AlterStr, Table: $3, NewName: $3}
 	}
 
 xa_statement:
@@ -3429,11 +3452,30 @@ like_or_where_opt:
 		$$ = &ShowFilter{Filter: $2}
 	}
 
-checksum_statement:
-	CHECKSUM TABLE table_name force_eof
+checksum_opt:
 	{
-		$$ = &Checksum{Table: $3}
+		$$ = ChecksumOptionNone
 	}
+|	QUICK
+	{
+		$$ = ChecksumOptionQuick
+	}
+|	EXTENDED
+	{
+		$$ = ChecksumOptionExtended
+	}
+
+checksum_statement:
+	CHECKSUM table_or_tables table_name_list checksum_opt force_eof
+	{
+		$$ = &Checksum{Tables: $3, ChecksumOption: $4}
+	}
+
+table_or_tables:
+	TABLE
+	{}
+|	TABLES
+	{}
 
 use_statement:
 	USE table_id
@@ -3441,12 +3483,75 @@ use_statement:
 		$$ = &Use{DBName: $2}
 	}
 
+optimize_opt:
+	{
+		$$ = OptimizeOptionNone
+	}
+|	NO_WRITE_TO_BINLOG
+	{
+		$$ = OptimizeOptionNoWriteToBinlog
+	}
+|	LOCAL
+	{
+		$$ = OptimizeOptionLocal
+	}
+
+optimize_statement:
+	OPTIMIZE optimize_opt table_or_tables table_name_list
+	{
+		$$ = &Optimize{OptimizeOption: $2, Tables: $4}
+	}
+
+check_option:
+	FOR UPGRADE
+	{
+		$$ = CheckOptionForUpgrade
+	}
+|	QUICK
+	{
+		$$ = CheckOptionQuick
+	}
+|	FAST
+	{
+		$$ = CheckOptionFast
+	}
+|	MEDIUM
+	{
+		$$ = CheckOptionMedium
+	}
+|	EXTENDED
+	{
+		$$ = CheckOptionExtended
+	}
+|	CHANGED
+	{
+		$$ = CheckOptionChanged
+	}
+
+check_option_list:
+	{
+		$$ = []CheckOptionEnum{}
+	}
+|	check_option_list check_option
+	{
+		$$ = append($1, $2)
+	}
+
+
+check_statement:
+	CHECK table_or_tables table_name_list check_option_list
+	{
+		$$ = &Check{Tables: $3,CheckOptions: $4}
+	}
+
+analyze_statement:
+	ANALYZE optimize_opt table_or_tables table_name_list
+	{
+		$$ = &Analyze{AnalyzeOption: $2, Tables: $4}
+	}
+
 other_statement:
 	REPAIR force_eof
-	{
-		$$ = &OtherAdmin{}
-	}
-|	OPTIMIZE force_eof
 	{
 		$$ = &OtherAdmin{}
 	}
@@ -4934,9 +5039,11 @@ reserved_keyword:
 |	BY
 |	CASCADE
 |	CASE
+|	CHANGED
 |	CHAR
 |	CHARACTER
 |	CHARSET
+|	CHECK
 |	COLLATE
 |	COLUMNS
 |	COMPRESSION
@@ -4963,6 +5070,7 @@ reserved_keyword:
 |	EXISTS
 |	EXPLAIN
 |	FALSE
+|	FAST
 |	FOR
 |	FORCE
 |	FROM
@@ -4993,6 +5101,7 @@ reserved_keyword:
 |	LONGTEXT
 |	MATCH
 |	MEDIUMBLOB
+|	MEDIUM
 |	MEDIUMINT
 |	MEDIUMTEXT
 |	MOD
@@ -5009,6 +5118,7 @@ reserved_keyword:
 |	ORDER
 |	OUTER
 |	QUERYZ
+|	QUICK
 |	PRIMARY
 |	PROCESSLIST
 |	REAL
@@ -5038,6 +5148,7 @@ reserved_keyword:
 |	UNIQUE
 |	UNSIGNED
 |	UPDATE
+|	UPGRADE
 |	USE
 |	USING
 |	UTC_DATE

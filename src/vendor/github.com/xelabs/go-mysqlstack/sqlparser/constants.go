@@ -218,3 +218,65 @@ const (
 	ExplainTypeJSON
 	ExplainTypeTraditional
 )
+
+// ChecksumOptionEnum is an enum for checksum statement.
+// see: https://dev.mysql.com/doc/refman/8.0/en/checksum-table.html
+type ChecksumOptionEnum int
+
+// ChecksumOptionEnum const values.
+const (
+	ChecksumOptionNone ChecksumOptionEnum = iota
+	ChecksumOptionQuick
+	ChecksumOptionExtended
+)
+
+var ChecksumOption2Str = map[ChecksumOptionEnum]string{
+	ChecksumOptionNone:     "",
+	ChecksumOptionQuick:    "quick",
+	ChecksumOptionExtended: "extended",
+}
+
+// OptimizeOptionEnum is an enum for optimize statement.
+type OptimizeOptionEnum int
+
+// OptimizeOptionEnum const values.
+const (
+	OptimizeOptionNone OptimizeOptionEnum = iota
+	OptimizeOptionNoWriteToBinlog
+	OptimizeOptionLocal
+)
+
+// OptimizeOption2Str is a map for enum option-->string
+var OptimizeOption2Str = map[OptimizeOptionEnum]string{
+	OptimizeOptionNone:            "",
+	OptimizeOptionNoWriteToBinlog: "no_write_to_binlog",
+	OptimizeOptionLocal:           "local",
+}
+
+// CheckOptionEnum is an enum for optimize statement.
+type CheckOptionEnum int
+
+// CheckOptionList is used by check statement.
+type CheckOptionList []CheckOptionEnum
+
+// CheckOptionEnum const values.
+const (
+	CheckOptionNone CheckOptionEnum = iota
+	CheckOptionForUpgrade
+	CheckOptionQuick
+	CheckOptionFast
+	CheckOptionMedium
+	CheckOptionExtended
+	CheckOptionChanged
+)
+
+// CheckOption2Str is a map for enum option --> string.
+var CheckOption2Str = map[CheckOptionEnum]string{
+	CheckOptionNone:       "",
+	CheckOptionForUpgrade: "for upgrade",
+	CheckOptionQuick:      "quick",
+	CheckOptionFast:       "fast",
+	CheckOptionMedium:     "medium",
+	CheckOptionExtended:   "extended",
+	CheckOptionChanged:    "changed",
+}

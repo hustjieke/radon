@@ -36,6 +36,10 @@ func replaceAliasedTableExprHints(newNode, parent SQLNode) {
 	parent.(*AliasedTableExpr).Hints = newNode.(*IndexHints)
 }
 
+func replaceAnalyzeTables(newNode, parent SQLNode) {
+	parent.(*Analyze).Tables = newNode.(TableNames)
+}
+
 func replaceAndExprLeft(newNode, parent SQLNode) {
 	parent.(*AndExpr).Left = newNode.(Expr)
 }
@@ -70,8 +74,12 @@ func (r *replaceCaseExprWhens) inc() {
 	*r++
 }
 
-func replaceChecksumTable(newNode, parent SQLNode) {
-	parent.(*Checksum).Table = newNode.(TableName)
+func replaceCheckTables(newNode, parent SQLNode) {
+	parent.(*Check).Tables = newNode.(TableNames)
+}
+
+func replaceChecksumTables(newNode, parent SQLNode) {
+	parent.(*Checksum).Tables = newNode.(TableNames)
 }
 
 func replaceColNameName(newNode, parent SQLNode) {
@@ -379,6 +387,10 @@ func (r *replaceOnDupItems) inc() {
 
 func replaceOptValValue(newNode, parent SQLNode) {
 	parent.(*OptVal).Value = newNode.(Expr)
+}
+
+func replaceOptimizeTables(newNode, parent SQLNode) {
+	parent.(*Optimize).Tables = newNode.(TableNames)
 }
 
 func replaceOrExprLeft(newNode, parent SQLNode) {
@@ -732,6 +744,9 @@ func (a *application) apply(parent, node SQLNode, replacer replacerFunc) {
 		a.apply(node, n.Expr, replaceAliasedTableExprExpr)
 		a.apply(node, n.Hints, replaceAliasedTableExprHints)
 
+	case *Analyze:
+		a.apply(node, n.Tables, replaceAnalyzeTables)
+
 	case *AndExpr:
 		a.apply(node, n.Left, replaceAndExprLeft)
 		a.apply(node, n.Right, replaceAndExprRight)
@@ -752,8 +767,15 @@ func (a *application) apply(parent, node SQLNode, replacer replacerFunc) {
 			replacerWhensB.inc()
 		}
 
+	case *Check:
+		a.apply(node, n.Tables, replaceCheckTables)
+
+	case *CheckOptionList:
+
 	case *Checksum:
-		a.apply(node, n.Table, replaceChecksumTable)
+		a.apply(node, n.Tables, replaceChecksumTables)
+
+	case *ChecksumOptionEnum:
 
 	case ColIdent:
 
@@ -926,6 +948,11 @@ func (a *application) apply(parent, node SQLNode, replacer replacerFunc) {
 
 	case *OptVal:
 		a.apply(node, n.Value, replaceOptValValue)
+
+	case *Optimize:
+		a.apply(node, n.Tables, replaceOptimizeTables)
+
+	case *OptimizeOptionEnum:
 
 	case *OrExpr:
 		a.apply(node, n.Left, replaceOrExprLeft)

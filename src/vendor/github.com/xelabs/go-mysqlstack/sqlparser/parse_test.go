@@ -675,9 +675,6 @@ func TestValid(t *testing.T) {
 		input:  "drop index b on a",
 		output: "drop index b on a",
 	}, {
-		input:  "analyze table a",
-		output: "alter table a",
-	}, {
 		input:  "show databases",
 		output: "show databases",
 	}, {
@@ -756,8 +753,24 @@ func TestValid(t *testing.T) {
 		input:  "repair foo",
 		output: "otheradmin",
 	}, {
-		input:  "optimize foo",
-		output: "otheradmin",
+		input: "optimize table foo",
+	}, {
+		input:  "optimize NO_WRITE_TO_BINLOG tables t1, t2",
+		output: "optimize no_write_to_binlog table t1, t2",
+	}, {
+		input: "optimize local table t1, t2",
+	}, {
+		input: "check table t quick fast medium extended changed for upgrade",
+	}, {
+		input:  "check tables t1,t2 quick quick",
+		output: "check table t1, t2 quick quick",
+	}, {
+		input: "analyze table foo",
+	}, {
+		input:  "analyze NO_WRITE_TO_BINLOG tables t1, t2",
+		output: "analyze no_write_to_binlog table t1, t2",
+	}, {
+		input: "analyze local table t1, t2",
 	}, {
 		input: "select /* EQ true */ 1 from t where a = true",
 	}, {

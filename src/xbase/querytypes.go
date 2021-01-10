@@ -46,6 +46,15 @@ const (
 	// CHECKSUM type.
 	CHECKSUM = "CHECKSUM"
 
+	// OPTIMIZE type.
+	OPTIMIZE = "OPTIMIZE"
+
+	// CHECK type.
+	CHECK = "CHECK"
+
+	// ANALYZE type.
+	ANALYZE = "ANALYZE"
+
 	// RADON type
 	RADON = "RADON"
 )

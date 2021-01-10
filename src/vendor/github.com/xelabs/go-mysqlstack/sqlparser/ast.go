@@ -166,7 +166,26 @@ type (
 
 	// Checksum represents a CHECKSUM statement.
 	Checksum struct {
-		Table TableName
+		Tables         TableNames
+		ChecksumOption ChecksumOptionEnum
+	}
+
+	// Optimize represents a Optimize statement.
+	Optimize struct {
+		OptimizeOption OptimizeOptionEnum
+		Tables         TableNames
+	}
+
+	// Check represents a Check statement.
+	Check struct {
+		Tables       TableNames
+		CheckOptions CheckOptionList
+	}
+
+	// Analyze represents a Analyze statement.
+	Analyze struct {
+		AnalyzeOption OptimizeOptionEnum
+		Tables        TableNames
 	}
 
 	// Use represents a use statement.
@@ -180,7 +199,7 @@ type (
 	OtherRead struct{}
 
 	// OtherAdmin represents a misc statement that relies on ADMIN privileges,
-	// such as REPAIR, OPTIMIZE, or TRUNCATE statement.
+	// such as REPAIR statement.
 	// It should be used only as an indicator. It does not contain
 	// the full AST for the statement.
 	OtherAdmin struct{}
@@ -231,7 +250,6 @@ func (*Delete) iStatement()      {}
 func (*Set) iStatement()         {}
 func (*DDL) iStatement()         {}
 func (*Show) iStatement()        {}
-func (*Checksum) iStatement()    {}
 func (*Use) iStatement()         {}
 func (*OtherRead) iStatement()   {}
 func (*OtherAdmin) iStatement()  {}
@@ -245,6 +263,12 @@ func (*Xa) iStatement()          {}
 func (*Select) iSelectStatement()      {}
 func (*Union) iSelectStatement()       {}
 func (*ParenSelect) iSelectStatement() {}
+
+// Table Maintenance Statements
+func (*Analyze) iStatement()  {}
+func (*Check) iStatement()    {}
+func (*Checksum) iStatement() {}
+func (*Optimize) iStatement() {}
 
 type (
 	// InsertRows represents the rows for an INSERT statement.
@@ -865,11 +889,6 @@ func (node *Delete) Format(buf *TrackedBuffer) {
 // Format formats the node.
 func (node *Set) Format(buf *TrackedBuffer) {
 	buf.Myprintf("set %v%v", node.Comments, node.Exprs)
-}
-
-// Format formats the node.
-func (node *Checksum) Format(buf *TrackedBuffer) {
-	buf.Myprintf("checksum table %v", node.Table)
 }
 
 // Format formats the node.
@@ -1994,4 +2013,56 @@ func (node *Transaction) Format(buf *TrackedBuffer) {
 // Format formats the node.
 func (node *Xa) Format(buf *TrackedBuffer) {
 	buf.WriteString("XA")
+}
+
+// Format formats the node.
+func (node *ChecksumOptionEnum) Format(buf *TrackedBuffer) {
+	if node == nil || *node == ChecksumOptionNone {
+		return
+	}
+	buf.Myprintf(" %s", ChecksumOption2Str[*node])
+}
+
+// Format formats the node.
+func (node *Checksum) Format(buf *TrackedBuffer) {
+	buf.Myprintf("checksum table %v%v", node.Tables, &(node.ChecksumOption))
+}
+
+// Format formats the node.
+func (node *Optimize) Format(buf *TrackedBuffer) {
+	buf.Myprintf("optimize %vtable %v", &(node.OptimizeOption), node.Tables)
+}
+
+// Format formats the node.
+func (node *OptimizeOptionEnum) Format(buf *TrackedBuffer) {
+	if node == nil || *node == OptimizeOptionNone {
+		return
+	}
+	buf.Myprintf("%s ", OptimizeOption2Str[*node])
+}
+
+// Format formats the node.
+func (node *CheckOptionList) Format(buf *TrackedBuffer) {
+	if node == nil {
+		return
+	}
+	for _, opt := range *node {
+		buf.Myprintf(" %s", CheckOption2Str[opt])
+	}
+}
+
+// Format formats the node.
+func (node *Check) Format(buf *TrackedBuffer) {
+	if node == nil {
+		return
+	}
+	buf.Myprintf("check table %v%v", node.Tables, &(node.CheckOptions))
+}
+
+// Format formats the node.
+func (node *Analyze) Format(buf *TrackedBuffer) {
+	if node == nil {
+		return
+	}
+	buf.Myprintf("analyze %vtable %v", &(node.AnalyzeOption), node.Tables)
 }
